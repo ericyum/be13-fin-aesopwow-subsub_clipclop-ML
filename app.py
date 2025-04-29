@@ -1,12 +1,16 @@
-print("여긴 지옥이야...")
+import pandas as pd
+import random
 
-"""
-    controller : 요청을 받고 응답을 반환하는 HTTP 엔드포인트를 정의
-    model : 머신러닝 모델을 정의하고 관리(기존에 생각했던 model하고 다릅니다.)
-    Service : controller에서 받은 데이터를 처리하고 필요한 비즈니스 로직
-    dto : 요청(Request)과 응답(Response)의 데이터 형태를 정의
-    repository : 데이터를 조회하거나 저장하는 로직을 담당하고 S3와 같은 외부 서비스나 파일 시스템에 데이터를 저장하거나 가져옴
-    __init__.py :
-        1) Flask 애플리케이션에서 Blueprint를 등록하는 등의 설정을 할 수 있습니다.
-        2) Basic 패키지 내의 다양한 모듈을 하나로 묶어 Flask 애플리케이션에서 사용될 수 있도록 초기화합니다.
-"""
+# CSV 파일 경로
+file_path = '/Users/iseonghun/Desktop/final-project/be13-fin-aesopwow-subsub_clipclop-ML/resources/data/netflix_users.csv'
+
+# CSV 파일 읽기
+df = pd.read_csv(file_path)
+
+# 성별 'gender' 컬럼을 F 또는 M으로 랜덤하게 생성
+df['Gender'] = [random.choice(['F', 'M']) for _ in range(len(df))]
+
+# 변경된 데이터프레임을 기존 파일에 덮어쓰기
+df.to_csv(file_path, index=False)
+
+print("성별 컬럼이 추가되었고, 파일이 덮어써졌습니다.")
