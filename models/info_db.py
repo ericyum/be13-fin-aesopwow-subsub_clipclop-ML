@@ -11,6 +11,7 @@ class Info_db(db.Model):
     user = db.Column(db.String(20), nullable=False)
     password = db.Column(db.String(20), nullable=False)
     host = db.Column(db.String(20), nullable=False)
+    port = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -23,6 +24,7 @@ class Info_db(db.Model):
             'user' : self.user,
             'password' : self.password,
             'host' : self.host,
+            'port' : self.port,
             'created_at' : self.created_at.isoformat(),
             'updated_at' : self.updated_at.isoformat()
         }

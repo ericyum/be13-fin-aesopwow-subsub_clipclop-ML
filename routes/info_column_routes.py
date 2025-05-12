@@ -1,6 +1,8 @@
 from flask import Blueprint, json, Response, request
 from models.info_column import Info_column
 
+from modules.info_column.info_column_module import get_info_columns_by_info_db_no, get_info_columns_by_info_db_no_origin_table
+
 info_column_bp = Blueprint('python-api/info_column', __name__)
 
 @info_column_bp.route('', methods=['GET'])
@@ -10,9 +12,9 @@ def get_info_column_all():
 
     if info_db_no:
         if origin_table:
-            info_columns = Info_column.query.filter_by(info_db_no=info_db_no, origin_table=origin_table).all()
+            info_columns = get_info_columns_by_info_db_no_origin_table(info_db_no, origin_table)
         else:
-            info_columns = Info_column.query.filter_by(info_db_no=info_db_no).all()
+            info_columns = get_info_columns_by_info_db_no(info_db_no)
         
         if info_columns:
             return Response(
@@ -26,7 +28,7 @@ def get_info_column_all():
     
 @info_column_bp.route('/<int:info_db_no>', methods=['GET'])
 def get_info_column_by_info_db_no(info_db_no):
-    info_columns = Info_column.query.filter_by(info_db_no=info_db_no).all()
+    info_columns = get_info_columns_by_info_db_no(info_db_no)
     if info_columns:
         return Response([info_column.to_dict() for info_column in info_columns])
     else:
