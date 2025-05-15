@@ -1,7 +1,7 @@
 from datetime import datetime
 from . import db
 
-class Info_db(db.Model):
+class User(db.Model):
     __tablename__ = 'info_db'
     
     info_db_no = db.Column(db.Integer, primary_key=True)

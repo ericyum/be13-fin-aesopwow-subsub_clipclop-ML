@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from models.info_db import Info_db
+from models.info_db import User
 from modules.info_db.info_db_module import get_info_db_all, get_info_db_by_company
 
 info_db_bp = Blueprint('python-api/info_db', __name__)
