@@ -1,12 +1,6 @@
-import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
-from resources.config.s3_config import S3_Config
+from modules.common.s3_client import get_s3_client, bucket_name
 
-bucket_name = S3_Config.bucket_name
-s3 = boto3.client('s3',
-                    aws_access_key_id=S3_Config.aws_access_key_id,
-                    aws_secret_access_key=S3_Config.aws_secret_access,
-                    region_name=S3_Config.region_name)
+s3 = get_s3_client()
 
 def module_get_s3_file(bucket_name, file_name):
     s3_object = s3.get_object(Bucket=bucket_name, Key=file_name)
