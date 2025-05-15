@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, Response, request
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
+
+from modules.analysis.analysis_module import module_get_s3_file
 from resources.config.s3_config import S3_Config
 
 from models.analysis import Analysis
@@ -16,7 +18,7 @@ def get_s3_file():
     bucket_name = "python-aesop"
 
     try:
-        s3_object = get_s3_file(bucket_name, file_name)
+        s3_object = module_get_s3_file(bucket_name, file_name)
         return Response(
             s3_object['Body'].read(),
             mimetype=s3_object['ContentType'],
