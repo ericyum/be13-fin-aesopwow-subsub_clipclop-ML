@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta, UTC
 from modules.common.convert_data import convert_data
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 
 # 공통 데이터 변환 함수
 def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
@@ -69,3 +69,10 @@ def determine_subscription_model(
             ultimate.append(user)
 
     return basic, premium, ultimate
+
+def calculate_percentages(*subscription_groups: List) -> Union[tuple[float, float, float], tuple[float, ...]]:
+    """구독 모델 비율 계산"""
+    total = sum(len(group) for group in subscription_groups)
+    if total == 0:
+        return 0.0, 0.0, 0.0
+    return tuple(round((len(group) / total) * 100, 1) for group in subscription_groups)
