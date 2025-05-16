@@ -2,7 +2,7 @@ from modules.common.user.user_utils import get_canceled_users, get_total_users
 from typing import Dict, List, Tuple, Literal
 from modules.devide.subscription import SubscriptionData, SubscriptionType, user_type
 from modules.common.utils.util_module import convert_to_dataframe
-from modules.devide.subscription import get_monthly_subscription_data, get_subscription_breakdown
+from modules.devide.subscription import get_subscription_data, get_subscription_breakdown
 
 def combine_subscription_data(
         active_data: SubscriptionData,
@@ -22,11 +22,11 @@ def combine_subscription_data(
 
 def get_monthly_total_subscriptions(info_db_no: int, origin_table: str) -> SubscriptionData:
     """월별 전체 사용자 구독 비율"""
-    return get_monthly_subscription_data(info_db_no, origin_table, 'total')
+    return get_subscription_data(info_db_no, origin_table, 'total', True)
 
 def get_monthly_cancelled_subscriptions(info_db_no: int, origin_table: str) -> SubscriptionData:
     """월별 취소된 사용자 구독 비율"""
-    return get_monthly_subscription_data(info_db_no, origin_table, 'cancelled')
+    return get_subscription_data(info_db_no, origin_table, 'cancelled', True)
 
 def get_subscription_model_breakdown(
         info_db_no: int,
