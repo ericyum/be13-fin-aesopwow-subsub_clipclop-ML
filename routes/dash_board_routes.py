@@ -1,7 +1,7 @@
 from flask import request, make_response, Blueprint
 from io import StringIO
 import csv
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from modules.common.user import user_utils
 from modules.dash_board.stacked_bar import get_monthly_total_subscriptions, get_monthly_cancelled_subscriptions
 from modules.dash_board.stat_cards import get_increase_decrease_rate, get_cancellation_rate
@@ -27,19 +27,21 @@ def dashboard_index():
     # 2. 월별 스택바 데이터 (예: 구독 모델별 비율)
     monthly_total = get_monthly_total_subscriptions(info_db_no, origin_table)
     monthly_cancelled = get_monthly_cancelled_subscriptions(info_db_no, origin_table)
-    new_users_data = get_subscription_data(info_db_no, origin_table, 'new', False)
 
-    # 3. CSV 작성
+    # 3. 신규 사용자는 월별 데이터로 받아오기 (딕셔너리 반환하도록 monthly=True)
+    new_users_data = get_subscription_data(info_db_no, origin_table, 'new', monthly=True)
+
+    # 4. CSV 작성
     csv_buffer = StringIO()
     writer = csv.writer(csv_buffer)
 
-    # 3-1. 메트릭 헤더 및 데이터
+    # 4-1. 메트릭 헤더 및 데이터
     writer.writerow(['metric', 'value', 'timestamp'])
-    now_utc = datetime.now(UTC).isoformat()
+    now_utc = datetime.now(timezone.utc).isoformat()
     for key, value in metrics.items():
         writer.writerow([key.replace('_', ' ').title(), value, now_utc])
 
-    # 3-2. 월별 스택바 헤더 및 데이터
+    # 4-2. 월별 스택바 헤더 및 데이터
     writer.writerow([])  # 빈 줄로 구분
     writer.writerow(['month', 'type', 'basic(%)', 'premium(%)', 'ultimate(%)'])
 
@@ -51,13 +53,13 @@ def dashboard_index():
     for month, (basic, premium, ultimate) in monthly_cancelled.items():
         writer.writerow([month, 'cancelled', basic, premium, ultimate])
 
-    # 신규 사용자 (SubscriptionData)
+    # 신규 사용자 (월별 데이터)
     writer.writerow([])  # 빈 줄로 구분
     writer.writerow(['month', 'type', 'basic(%)', 'premium(%)', 'ultimate(%)'])
     for month, (basic, premium, ultimate) in new_users_data.items():
         writer.writerow([month, 'new', basic, premium, ultimate])
 
-    # 4. 응답 반환
+    # 5. 응답 반환
     response = make_response(csv_buffer.getvalue())
     response.headers['Content-Type'] = 'text/csv'
     response.headers['Content-Disposition'] = f'attachment; filename={origin_table}_metrics.csv'
