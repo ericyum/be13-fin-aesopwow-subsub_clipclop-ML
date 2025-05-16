@@ -1,59 +1,54 @@
+import pandas as pd
 from datetime import datetime, timedelta
-from sqlalchemy import func
-from models.user import User
-from models import db
+from modules.common.convert_data import convert_data  # 경로 확인 필수
 
 
-def get_increase_decrease_rate(company_no, period_days=30):
-    now = datetime.utcnow()
-    current_start = now - timedelta(days=period_days)
-    previous_start = current_start - timedelta(days=period_days)
+def get_increase_decrease_rate(
+        info_db_no: int,
+        origin_table: str,
+        period_days: int = 30
+) -> float:
+    data = convert_data(info_db_no, origin_table)
+    df = pd.DataFrame(data)
 
-    current_count = (
-        db.session.query(func.count(User.company_no))
-        .filter(User.company_no == company_no)
-        .filter(User.created_at >= current_start)
-        .scalar()
-    )
+    now = pd.Timestamp(datetime.utcnow())
+    current_start = now - pd.Timedelta(days=period_days)
+    previous_start = current_start - pd.Timedelta(days=period_days)
 
-    previous_count = (
-        db.session.query(func.count(User.company_no))
-        .filter(User.company_no == company_no)
-        .filter(User.created_at >= previous_start)
-        .filter(User.created_at < current_start)
-        .scalar()
-    )
+    current = df[
+        (df['created_at'] >= current_start)
+    ]
 
-    if previous_count == 0:
-        return None  # 이전 데이터 없음
+    previous = df[
+        (df['created_at'] >= previous_start) &
+        (df['created_at'] < current_start)
+        ]
 
-    rate = ((current_count - previous_count) / previous_count) * 100
-
+    if len(previous) == 0:
+        return None
+    rate = ((len(current) - len(previous)) / len(previous)) * 100
     return round(rate, 2)
 
-def get_cancellation_rate(company_no, period_days=30):
-    now = datetime.utcnow()
-    period_start = now - timedelta(days=period_days)
+def get_cancellation_rate(
+        info_db_no: int,
+        origin_table: str,
+) -> float:
+    data = convert_data(info_db_no, origin_table)
+    df = pd.DataFrame(data)
 
-    cancelled_users = (
-        db.session.query(func.count(User.company_no))
-        .filter(User.company_no == company_no)
-        .filter(User.logined_at >= period_start)
-        .filter(User.logined_at <= now)
-        .scalar()
-    )
+    now = pd.Timestamp(datetime.utcnow())
 
-    active_users = (
-        db.session.query(func.count(User.company_no))
-        .filter(User.company_no == company_no)
-        .filter(User.created_at <= period_start)
-        .filter((User.logined_at.is_(None)) | (User.logined_at >= period_start))
-        .scalar()
-    )
+    # 해지 사용자 (구독 상태 없음)
+    cancelled = df[
+        (df['subscription_type'].isna())  # null 체크
+    ]
 
-    if active_users == 0:
+    # 활성 사용자 (구독 상태 있음)
+    active = df[
+        (df['subscription_type'].notna())  # not null 체크
+    ]
+
+    if len(active) == 0:
         return None
-
-    rate = (cancelled_users / active_users) * 100
-
+    rate = (len(cancelled) / len(active)) * 100
     return round(rate, 2)
