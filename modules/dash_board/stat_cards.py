@@ -1,7 +1,6 @@
 import pandas as pd
-from datetime import datetime, timedelta
-from modules.common.convert_data import convert_data  # 경로 확인 필수
-
+from datetime import datetime, UTC
+from modules.common.convert_data import convert_data
 
 def get_increase_decrease_rate(
         info_db_no: int,
@@ -11,7 +10,7 @@ def get_increase_decrease_rate(
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
-    now = pd.Timestamp(datetime.utcnow())
+    now = pd.Timestamp(datetime.now(UTC))
     current_start = now - pd.Timedelta(days=period_days)
     previous_start = current_start - pd.Timedelta(days=period_days)
 
@@ -36,14 +35,10 @@ def get_cancellation_rate(
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
-    now = pd.Timestamp(datetime.utcnow())
-
-    # 해지 사용자 (구독 상태 없음)
     cancelled = df[
         (df['subscription_type'].isna())  # null 체크
     ]
 
-    # 활성 사용자 (구독 상태 있음)
     active = df[
         (df['subscription_type'].notna())  # not null 체크
     ]
