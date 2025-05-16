@@ -1,12 +1,8 @@
 from modules.common.user.user_utils import get_canceled_users, get_total_users
 from typing import Dict, List, Tuple, Literal
-
+from modules.devide.subscription import SubscriptionData, SubscriptionType, user_type
 from modules.common.utils.util_module import convert_to_dataframe
 from modules.devide.subscription import get_monthly_subscription_data, get_subscription_breakdown
-
-SubscriptionType = Literal['basic', 'premium', 'ultimate']
-SubscriptionData = Dict[str, Tuple[float, float, float]]
-user_type = Literal['total', 'cancelled', 'new', 'active', 'dormant']
 
 def combine_subscription_data(
         active_data: SubscriptionData,
