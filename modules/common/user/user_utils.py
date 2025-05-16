@@ -9,7 +9,7 @@ def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 # 전체 사용자 수
-def get_entire_users(info_db_no: int, origin_table: str):
+def get_total_users(info_db_no: int, origin_table: str):
     df = load_data(info_db_no, origin_table)
     return df
 

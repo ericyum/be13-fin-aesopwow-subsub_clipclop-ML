@@ -1,6 +1,6 @@
 from dateutil.relativedelta import relativedelta
 import pandas as pd
-from modules.common.user.user_utils import get_canceled_users, get_entire_users, determine_subscription_model
+from modules.common.user.user_utils import get_canceled_users, get_total_users, determine_subscription_model
 from typing import Dict, List, Tuple, Literal, Union
 from datetime import datetime, UTC
 from collections import defaultdict
@@ -9,11 +9,11 @@ SubscriptionType = Literal['basic', 'premium', 'ultimate']
 SubscriptionData = Dict[str, Tuple[float, float, float]]
 
 def convert_to_dataframe(data: List[Dict]) -> pd.DataFrame:
-    """Dictionary 타입을 DataFrame으로 변환"""
+    """Dictionary 타입을 DataFrame 으로 변환"""
     return pd.DataFrame(data) if isinstance(data, list) else data
 
 def get_month_range(now: datetime, month_offset: int) -> Tuple[datetime, datetime]:
-    """주어진 오프셋에 대한 월 범위 계산"""
+    """월 범위 계산"""
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0) - relativedelta(months=month_offset)
     return month_start, month_start + relativedelta(months=1)
 
@@ -31,13 +31,13 @@ def get_subscription_breakdown(data: pd.DataFrame) -> Tuple[List[Dict], List[Dic
 def get_monthly_subscription_data(
         info_db_no: int,
         origin_table: str,
-        user_type: Literal['entire', 'cancelled']
+        user_type: Literal['total', 'cancelled']
 ) -> SubscriptionData:
     """월별 구독 데이터를 처리하는 함수"""
     now = datetime.now(UTC)  # 타임존 인식 UTC 객체
     monthly_data = defaultdict(lambda: (0.0, 0.0, 0.0))
 
-    data_fetcher = get_entire_users if user_type == 'entire' else get_canceled_users
+    data_fetcher = get_total_users if user_type == 'total' else get_canceled_users
 
     for month_offset in range(12):
         month_start, month_end = get_month_range(now, month_offset)
@@ -76,9 +76,9 @@ def combine_subscription_data(
         combined[month] = (active_val, cancelled_val)
     return combined
 
-def get_monthly_active_subscriptions(info_db_no: int, origin_table: str) -> SubscriptionData:
+def get_monthly_total_subscriptions(info_db_no: int, origin_table: str) -> SubscriptionData:
     """월별 전체 사용자 구독 비율"""
-    return get_monthly_subscription_data(info_db_no, origin_table, 'entire')
+    return get_monthly_subscription_data(info_db_no, origin_table, 'total')
 
 def get_monthly_cancelled_subscriptions(info_db_no: int, origin_table: str) -> SubscriptionData:
     """월별 취소된 사용자 구독 비율"""
@@ -90,6 +90,6 @@ def get_subscription_model_breakdown(
         user_type: Literal['active', 'cancelled']
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
     """전체 사용자 기반에 대한 구독 모델 세부 정보"""
-    data_fetcher = get_entire_users if user_type == 'active' else get_canceled_users
+    data_fetcher = get_total_users if user_type == 'active' else get_canceled_users
     raw_data = data_fetcher(info_db_no, origin_table)
     return get_subscription_breakdown(convert_to_dataframe(raw_data))
