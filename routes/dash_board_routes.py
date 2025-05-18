@@ -6,6 +6,7 @@ from modules.common.user import user_utils
 from modules.dash_board.stacked_bar import get_monthly_total_subscriptions, get_monthly_cancelled_subscriptions
 from modules.dash_board.stat_cards import get_increase_decrease_rate, get_cancellation_rate
 from modules.devide.subscription import get_subscription_data
+from modules.dash_board.line_graph import calculate_increase_decrease_per  # 추가
 
 dashboard_bp = Blueprint('python-api/dashboard', __name__)
 
@@ -31,17 +32,20 @@ def dashboard_index():
     # 3. 신규 사용자는 월별 데이터로 받아오기 (딕셔너리 반환하도록 monthly=True)
     new_users_data = get_subscription_data(info_db_no, origin_table, 'new', monthly=True)
 
-    # 4. CSV 작성
+    # 4. 월별 증감률 계산
+    increase_decrease_df = calculate_increase_decrease_per(info_db_no, origin_table)
+
+    # 5. CSV 작성
     csv_buffer = StringIO()
     writer = csv.writer(csv_buffer)
 
-    # 4-1. 메트릭 헤더 및 데이터
+    # 5-1. 메트릭 헤더 및 데이터
     writer.writerow(['metric', 'value', 'timestamp'])
     now_utc = datetime.now(timezone.utc).isoformat()
     for key, value in metrics.items():
         writer.writerow([key.replace('_', ' ').title(), value, now_utc])
 
-    # 4-2. 월별 스택바 헤더 및 데이터
+    # 5-2. 월별 스택바 헤더 및 데이터
     writer.writerow([])  # 빈 줄로 구분
     writer.writerow(['month', 'type', 'basic(%)', 'premium(%)', 'ultimate(%)'])
 
@@ -59,7 +63,13 @@ def dashboard_index():
     for month, (basic, premium, ultimate) in new_users_data.items():
         writer.writerow([month, 'new', basic, premium, ultimate])
 
-    # 5. 응답 반환
+    # 5-3. 월별 증감률 데이터
+    writer.writerow([])  # 빈 줄로 구분
+    writer.writerow(['month', 'subscribers', 'rate(%)'])
+    for _, row in increase_decrease_df.iterrows():
+        writer.writerow(row)
+
+    # 6. 응답 반환
     response = make_response(csv_buffer.getvalue())
     response.headers['Content-Type'] = 'text/csv'
     response.headers['Content-Disposition'] = f'attachment; filename={origin_table}_metrics.csv'

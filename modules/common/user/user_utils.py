@@ -17,12 +17,10 @@ def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
 
     return df
 
-
 # 전체 사용자 수
 def get_total_users(info_db_no: int, origin_table: str):
     df = load_data(info_db_no, origin_table)
     return df
-
 
 # 신규 사용자 (30일 이내 생성)
 def get_new_users(info_db_no: int, origin_table: str):
@@ -30,7 +28,6 @@ def get_new_users(info_db_no: int, origin_table: str):
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     new_users = df[df['created_at'] >= cutoff]
     return new_users
-
 
 # 활성 사용자 (종료일 없거나 미래)
 def get_active_users(info_db_no: int, origin_table: str):
@@ -43,7 +40,6 @@ def get_active_users(info_db_no: int, origin_table: str):
     active_users = df[(df['ended_at'].isna()) | (df['ended_at'] >= now)]
     return active_users
 
-
 # 휴면 사용자 (30일 이상 미접속)
 def get_dormant_users(info_db_no: int, origin_table: str):
     df = load_data(info_db_no, origin_table)
@@ -52,7 +48,6 @@ def get_dormant_users(info_db_no: int, origin_table: str):
     # logined_at tz 체크는 load_data에서 이미 tz 제거했으니 생략 가능
     dormant_users = df[df['logined_at'] < cutoff]
     return dormant_users
-
 
 # 해지 사용자 (종료일 과거)
 def get_canceled_users(info_db_no: int, origin_table: str):
@@ -64,7 +59,6 @@ def get_canceled_users(info_db_no: int, origin_table: str):
         (df['ended_at'] < now)
     ]
     return canceled_users
-
 
 # 구독 모델 판별
 def determine_subscription_model(
@@ -85,7 +79,6 @@ def determine_subscription_model(
             ultimate.append(user.to_dict())
 
     return basic, premium, ultimate
-
 
 def calculate_percentages(*subscription_groups: List) -> Union[tuple[float, float, float], tuple[float, ...]]:
     """구독 모델 비율 계산"""
