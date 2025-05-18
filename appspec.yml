@@ -1,0 +1,11 @@
+version: 0.0
+os: linux
+
+files:
+  - source: build/libs/*.jar
+    destination: /home/ubuntu/app
+
+hooks:
+  AfterInstall:
+    - location: scripts/start_server.sh
+      timeout: 300
