@@ -1,0 +1,19 @@
+version: 0.0
+os: linux
+files:
+  - source: app.py
+    destination: /home/ubuntu/app
+  - source: requirements.txt
+    destination: /home/ubuntu/app
+  # 필요하다면 templates, static 등 폴더도 추가
+  - source: templates
+    destination: /home/ubuntu/app/templates
+  - source: static
+    destination: /home/ubuntu/app/static
+  - source: scripts
+    destination: /home/ubuntu/app/scripts
+
+hooks:
+  AfterInstall:
+    - location: scripts/start_server.sh
+      timeout: 300
