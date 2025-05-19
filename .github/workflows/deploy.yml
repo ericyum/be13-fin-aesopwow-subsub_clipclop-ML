@@ -6,7 +6,7 @@ on:
 
 env:
   AWS_REGION: ap-northeast-2
-  S3_BUCKET_NAME: aesop-be
+  S3_BUCKET_NAME: python-aesop
   CODE_DEPLOY_APPLICATION_NAME: aesop-ml
   CODE_DEPLOY_DEPLOYMENT_GROUP_NAME: aesop-deploy-group-ml
 
