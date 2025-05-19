@@ -1,6 +1,6 @@
 #!/bin/bash
-
-cd /home/ubuntu/app
+set -euo pipefail
+cd /home/ubuntu/app || exit 1
 
 # 1. 기존 gunicorn 프로세스 종료
 PID=$(pgrep -f 'gunicorn')
