@@ -10,6 +10,8 @@ files:
     destination: /home/ubuntu/app/templates
   - source: static
     destination: /home/ubuntu/app/static
+  - source: scripts
+    destination: /home/ubuntu/app/scripts
 
 hooks:
   AfterInstall:
