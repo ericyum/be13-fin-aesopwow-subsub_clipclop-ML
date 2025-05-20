@@ -19,4 +19,4 @@ pip install -r requirements.txt
 
 # 4. Flask 앱 실행 (gunicorn)
 # 🔥 파일명이 app.py라면 아래처럼 app:app
-nohup gunicorn --bind 0.0.0.0:8080 app:app > /home/ubuntu/app/app.log 2>&1 &
+nohup gunicorn --config /home/ubuntu/app/gunicorn_config.py app:app > /home/ubuntu/app/app.log 2>&1 &
