@@ -23,7 +23,7 @@ jobs:
 
       - name: Make deployment zip
         run: |
-          zip -r $GITHUB_SHA.zip app.py requirements.txt appspec.yml scripts templates static
+          zip -r $GITHUB_SHA.zip models modules resources routes scripts app.py appspec.yml gunicorn_config.py requirements.txt wsgi.py
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
