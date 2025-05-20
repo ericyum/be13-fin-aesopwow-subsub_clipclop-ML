@@ -12,8 +12,7 @@ files:
 ##    destination: /home/ubuntu/app/static
 #  - source: scripts
 #    destination: /home/ubuntu/app/scripts
-  - source: /
-    destination: /home/ubuntu/app
+  a
 
 hooks:
   AfterInstall:
