@@ -35,7 +35,9 @@ def get_subscription_data(
             month_start = month_start.replace(tzinfo=None)
             month_end = month_end.replace(tzinfo=None)
             filtered = _filter_user_data(df, users_type, month_start, month_end, one_year_ago)
+
             basic, premium, ultimate = get_subscription_breakdown(filtered)
+
             subscription_data[month_start.strftime('%Y-%m')] = calculate_percentages(basic, premium, ultimate)
         return dict(subscription_data)
     else:

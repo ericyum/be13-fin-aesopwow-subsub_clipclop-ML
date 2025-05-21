@@ -26,17 +26,53 @@ def get_increase_decrease_rate(
     return round(rate, 2)
 
 
-def get_cancellation_rate(
-        info_db_no: int,
-        origin_table: str,
-) -> float:
+# def get_cancellation_rate(
+#         info_db_no: int,
+#         origin_table: str,
+# ) -> float:
+#     data = convert_data(info_db_no, origin_table)
+#     df = pd.DataFrame(data)
+
+#     cancelled = df[df['subscription_type'].isna()]
+#     active = df[df['subscription_type'].notna()]
+
+#     if len(active) == 0:
+#         return None
+#     rate = (len(cancelled) / len(active)) * 100
+#     return round(rate, 2)
+
+def get_cancellation_rate(info_db_no: int, origin_table: str) -> float:
+    from datetime import datetime, timedelta
+
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
-    cancelled = df[df['subscription_type'].isna()]
-    active = df[df['subscription_type'].notna()]
+    # 현재 시각 (naive datetime)
+    now = datetime.now().replace(tzinfo=None)
+    cutoff = now - timedelta(days=30)
 
-    if len(active) == 0:
+    # 1. subscription_type이 있는 유저만 사용
+    df = df[df['subscription_type'].notna()]
+
+    # 2. 전체 유저 수 (구독 정보 있는 유저만 대상)
+    total = len(df)
+    if total == 0:
         return None
-    rate = (len(cancelled) / len(active)) * 100
+
+    # 3. 활성 유저: ended_at이 없거나 미래
+    df['ended_at'] = pd.to_datetime(df['ended_at'], errors='coerce')
+    active = df[(df['ended_at'].isna()) | (df['ended_at'] >= now)]
+
+    # 4. 최근 한 달 안에 ended_at이 있는 유저 중 active 아닌 유저 → 해지자
+    cancelled = df[
+        (~df.index.isin(active.index)) &  # active 유저는 제외
+        (df['ended_at'].notna()) &
+        (df['ended_at'] >= cutoff) &
+        (df['ended_at'] < now)
+    ]
+
+    # 5. 비율 계산
+    rate = (len(cancelled) / total) * 100
+
+    print(f"Total: {total}, Cancelled: {len(cancelled)}")
     return round(rate, 2)

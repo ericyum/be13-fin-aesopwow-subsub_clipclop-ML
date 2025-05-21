@@ -61,24 +61,28 @@ def get_canceled_users(info_db_no: int, origin_table: str):
     return canceled_users
 
 # 구독 모델 판별
+from typing import List, Dict, Tuple
+import pandas as pd
+
 def determine_subscription_model(
-        users: pd.DataFrame,
+    users: pd.DataFrame,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
 
     basic: List[Dict] = []
+    standard: List[Dict] = []
     premium: List[Dict] = []
-    ultimate: List[Dict] = []
 
     for _, user in users.iterrows():
-        sub_type = (user.get('prev_subscription') or '').lower()
+        sub_type = (user.get('subscription_type') or '').strip().lower()
+
         if sub_type == 'basic':
             basic.append(user.to_dict())
+        elif sub_type == 'standard':
+            standard.append(user.to_dict())
         elif sub_type == 'premium':
             premium.append(user.to_dict())
-        elif sub_type == 'ultimate':
-            ultimate.append(user.to_dict())
 
-    return basic, premium, ultimate
+    return basic, standard, premium
 
 def calculate_percentages(*subscription_groups: List) -> Union[tuple[float, float, float], tuple[float, ...]]:
     """구독 모델 비율 계산"""

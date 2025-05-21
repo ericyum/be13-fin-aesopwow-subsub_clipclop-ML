@@ -67,7 +67,11 @@ def dashboard_index():
     writer.writerow([])  # 빈 줄로 구분
     writer.writerow(['month', 'subscribers', 'rate(%)'])
     for _, row in increase_decrease_df.iterrows():
-        writer.writerow(row)
+        writer.writerow([
+            row['month'],
+            round(row.get('cumulative', 0), 2),  # 누적 가입자 수 (있다면)
+            round(row['increase_decrease_per'], 2)  # 증감률 소수점 둘째 자리
+        ])
 
     # 6. 응답 반환
     response = make_response(csv_buffer.getvalue())
