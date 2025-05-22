@@ -7,6 +7,8 @@ from routes.info_db_routes import info_db_bp
 from routes.info_column_routes import info_column_bp
 from routes.analysis_routes import analysis_bp
 
+from modules.analysis.lsh_test import cohort_ns
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -19,5 +21,19 @@ app.register_blueprint(analysis_bp, url_prefix='/python-api/analysis')
 
 app.register_blueprint(dashboard_bp, url_prefix='/python-api/dashboard')
 
+from flask import Blueprint
+from flask_restx import Api
+
+
+api_bp = Blueprint('api', __name__, url_prefix="/docs/api")
+api = Api(api_bp,
+          title='Cohort Analysis API',
+          version='1.0',
+          description='Swagger for Cohort APIs Only')
+
+api.add_namespace(cohort_ns, path='/cohort')  # 실제 API는 /docs/api/cohort/analyze
+
+app.register_blueprint(api_bp)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(port=5001,debug=True)
