@@ -12,7 +12,7 @@ def combine_subscription_data(
         subscription_type: SubscriptionType
 ) -> Dict[str, Tuple[float, float]]:
     """특정 구독 유형에 대해 전체 유저와 해지한 유저 데이터 결합"""
-    subscription_index = {'basic': 0, 'premium': 1, 'ultimate': 2}
+    subscription_index = {'basic': 0, 'standard': 1, 'premium': 2}
     idx = subscription_index[subscription_type]
 
     combined = {}
