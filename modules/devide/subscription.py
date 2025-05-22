@@ -46,8 +46,13 @@ def get_subscription_data(
         basic, standard, premium = get_subscription_breakdown(filtered)
         return calculate_percentages(basic, standard, premium)
 
-def _filter_user_data(df: pd.DataFrame, users_type: user_type, start: datetime = None, end: datetime = None, one_year_ago: datetime = None) -> pd.DataFrame:
-    # 날짜 컬럼 tz 제거 다시 한 번 더 안전하게 (중복 가능)
+def _filter_user_data(
+        df: pd.DataFrame,
+        users_type: user_type,
+        start: datetime = None,
+        end: datetime = None,
+        one_year_ago: datetime = None
+) -> pd.DataFrame:
     for col in ['created_at', 'ended_at', 'last_activity']:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize(None)
