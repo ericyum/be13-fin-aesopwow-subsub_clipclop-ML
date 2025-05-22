@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from modules.common.convert_data import convert_data
-from typing import List, Dict, Tuple, Union
+from typing import  List, Dict, Tuple, Union
 
 # 공통 데이터 변환 함수
 def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
@@ -61,12 +61,11 @@ def get_canceled_users(info_db_no: int, origin_table: str):
     return canceled_users
 
 # 구독 모델 판별
-from typing import List, Dict, Tuple
-import pandas as pd
 
 def determine_subscription_model(
     users: pd.DataFrame,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    """유저를 basic, standard, premium 구독 타입으로 분류"""
 
     basic: List[Dict] = []
     standard: List[Dict] = []

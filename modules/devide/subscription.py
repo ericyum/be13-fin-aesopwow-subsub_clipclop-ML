@@ -5,7 +5,7 @@ import pandas as pd
 from modules.common.user.user_utils import get_canceled_users, get_total_users, calculate_percentages, determine_subscription_model
 from modules.common.utils.util_module import get_month_range, convert_to_dataframe
 
-SubscriptionType = Literal['basic', 'premium', 'ultimate']
+SubscriptionType = Literal['basic', 'standard', 'premium']
 SubscriptionData = Dict[str, Tuple[float, float, float]]
 user_type = Literal['total', 'cancelled', 'new', 'active', 'dormant']
 
@@ -36,14 +36,15 @@ def get_subscription_data(
             month_end = month_end.replace(tzinfo=None)
             filtered = _filter_user_data(df, users_type, month_start, month_end, one_year_ago)
 
-            basic, premium, ultimate = get_subscription_breakdown(filtered)
+            basic, standard, premium = get_subscription_breakdown(filtered)
 
-            subscription_data[month_start.strftime('%Y-%m')] = calculate_percentages(basic, premium, ultimate)
+            subscription_data[month_start.strftime('%Y-%m')] = calculate_percentages(basic, standard,
+                                                                                                  premium)
         return dict(subscription_data)
     else:
         filtered = _filter_user_data(df, users_type, one_year_ago=one_year_ago)
-        basic, premium, ultimate = get_subscription_breakdown(filtered)
-        return calculate_percentages(basic, premium, ultimate)
+        basic, standard, premium = get_subscription_breakdown(filtered)
+        return calculate_percentages(basic, standard, premium)
 
 def _filter_user_data(df: pd.DataFrame, users_type: user_type, start: datetime = None, end: datetime = None, one_year_ago: datetime = None) -> pd.DataFrame:
     # 날짜 컬럼 tz 제거 다시 한 번 더 안전하게 (중복 가능)

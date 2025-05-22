@@ -74,5 +74,4 @@ def get_cancellation_rate(info_db_no: int, origin_table: str) -> float:
     # 5. 비율 계산
     rate = (len(cancelled) / total) * 100
 
-    print(f"Total: {total}, Cancelled: {len(cancelled)}")
     return round(rate, 2)

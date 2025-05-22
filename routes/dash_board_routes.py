@@ -47,21 +47,21 @@ def dashboard_index():
 
     # 5-2. 월별 스택바 헤더 및 데이터
     writer.writerow([])  # 빈 줄로 구분
-    writer.writerow(['month', 'type', 'basic(%)', 'premium(%)', 'ultimate(%)'])
+    writer.writerow(['month', 'type', 'basic(%)', 'standard(%)', 'premium(%)'])
 
     # 전체 사용자
-    for month, (basic, premium, ultimate) in monthly_total.items():
-        writer.writerow([month, 'active', basic, premium, ultimate])
+    for month, (basic, standard, premium) in monthly_total.items():
+        writer.writerow([month, 'active', basic, standard, premium])
 
     # 해지 사용자
-    for month, (basic, premium, ultimate) in monthly_cancelled.items():
-        writer.writerow([month, 'cancelled', basic, premium, ultimate])
+    for month, (basic, standard, premium) in monthly_cancelled.items():
+        writer.writerow([month, 'cancelled', basic, standard, premium])
 
     # 신규 사용자 (월별 데이터)
     writer.writerow([])  # 빈 줄로 구분
-    writer.writerow(['month', 'type', 'basic(%)', 'premium(%)', 'ultimate(%)'])
-    for month, (basic, premium, ultimate) in new_users_data.items():
-        writer.writerow([month, 'new', basic, premium, ultimate])
+    writer.writerow(['month', 'type', 'basic(%)', 'standard(%)', 'premium(%)'])
+    for month, (basic, standard, premium) in new_users_data.items():
+        writer.writerow([month, 'new', basic, standard, premium])
 
     # 5-3. 월별 증감률 데이터
     writer.writerow([])  # 빈 줄로 구분
