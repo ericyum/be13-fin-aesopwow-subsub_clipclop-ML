@@ -51,7 +51,7 @@ def classify_last_login(last_login_at, now: datetime = None) -> LastLoginSegment
     if now is None:
         now = datetime.now()
     try:
-        last_login = pd.to_datetime(last_login_at)
+        last_login = pd.to_datetime(last_login_at, utc=True).tz_localize(None)
         if pd.isnull(last_login):
             return 'forgotten'
     except Exception:

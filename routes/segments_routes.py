@@ -1,5 +1,5 @@
 from flask import Blueprint, request, make_response
-import pandas as pd
+import re
 import csv
 from io import StringIO
 
@@ -71,5 +71,6 @@ def segments_csv():
     # 응답 반환
     response = make_response(csv_buffer.getvalue())
     response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename={origin_table}_{domain}_segments.csv'
+    safe_table_name = re.sub(r'[^\w\-_]', '_', origin_table)
+    response.headers['Content-Disposition'] = f'attachment; filename={safe_table_name}_{domain}_segments.csv'
     return response
