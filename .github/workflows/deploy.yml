@@ -2,7 +2,7 @@ name: Deploy to EC2 via CodeDeploy
 #test2
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
 
 env:
   AWS_REGION: ap-northeast-2
