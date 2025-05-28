@@ -7,7 +7,9 @@ from routes.info_db_routes import info_db_bp
 from routes.info_column_routes import info_column_bp
 from routes.analysis_routes import analysis_bp
 from routes.segments_routes import segments_bp
-
+from flask import Blueprint
+from flask_restx import Api
+from routes.openai_routes import openai_bp
 from modules.analysis.lsh_test import cohort_ns
 
 app = Flask(__name__)
@@ -21,10 +23,7 @@ app.register_blueprint(info_column_bp, url_prefix='/python-api/info_column')
 app.register_blueprint(analysis_bp, url_prefix='/python-api/analysis')
 app.register_blueprint(dashboard_bp, url_prefix='/python-api/dashboard')
 app.register_blueprint(segments_bp, url_prefix='/python-api/segments')
-
-from flask import Blueprint
-from flask_restx import Api
-
+app.register_blueprint(openai_bp, url_prefix='/python-api/openai')
 
 api_bp = Blueprint('api', __name__, url_prefix="/docs/api")
 api = Api(api_bp,
