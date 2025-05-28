@@ -11,6 +11,7 @@ from routes.info_db_routes import info_db_bp
 from routes.info_column_routes import info_column_bp
 from routes.analysis_routes import analysis_bp
 from routes.segments_routes import segments_bp
+from routes.openai_routes import openai_bp, openai_ns
 
 # API Namespaces
 from routes.analysis_routes import analysis_ns
@@ -41,6 +42,7 @@ api.add_namespace(info_db_ns)
 api.add_namespace(info_column_ns)
 api.add_namespace(analysis_ns)
 api.add_namespace(dashboard_ns)
+api.add_namespace(openai_ns)
 
 # Blueprint 등록
 app.register_blueprint(info_db_bp)
@@ -48,6 +50,7 @@ app.register_blueprint(info_column_bp)
 app.register_blueprint(analysis_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(segments_bp)
+app.register_blueprint(openai_bp)
 
 # API Blueprint 등록
 app.register_blueprint(api_bp)
