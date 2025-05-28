@@ -13,7 +13,7 @@ from modules.common.user.user_utils import (
 )
 from modules.devide.segments import add_segments
 
-segments_bp = Blueprint('python-api/segments', __name__)
+segments_bp = Blueprint('/segments', __name__)
 
 @segments_bp.route('/csv', methods=['GET'])
 def segments_csv():
