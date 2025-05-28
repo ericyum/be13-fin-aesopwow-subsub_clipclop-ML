@@ -25,25 +25,31 @@ PROMPT_TEMPLATE = """
 
 형식:
 Thought: (네 생각)
-Action: python_repl_ast["파이썬 코드"]
+Action: python_repl_ast
+Action Input: (파이썬 코드)
 Observation: (코드 실행 결과)
 ... (필요하다면 반복)
 Final Answer: 
 요약: (데이터의 주요 특징을 한 문장으로 요약)
 인사이트: (데이터에서 발견한 중요한 인사이트를 2~3개로 정리)
-행동 추천: (데이터 기반으로 추천할 구체적인 행동을 2~3개로 제시)
+행동 추천: (데이터 기반으로 실질적으로 도움이 되는 구체적이고 친절한 행동 추천을 반드시 3가지 제시해줘. 각 추천은 이유와 함께, 구체적인 실행 방법이나 예시도 포함해줘.)
 
 예시:
 Thought: 데이터에서 고객 이탈률을 확인해보자.
-Action: python_repl_ast["df['churn'].mean()"]
+Action: python_repl_ast
+Action Input: df['churn'].mean()
 Observation: 0.23
 Final Answer: 
 요약: 전체 고객의 약 23%가 이탈했다.
 인사이트: 이탈률이 업계 평균보다 높다. 특정 요인(예: 요금제, 서비스 불만)이 영향을 준 것으로 보인다.
-행동 추천: 이탈 고객 대상 설문조사를 실시하고, 불만 요인을 개선하는 프로모션을 진행하자.
+행동 추천: 
+1. 이탈 고객을 대상으로 설문조사를 실시하여, 이탈의 주요 원인을 파악하세요. 예를 들어, 이메일 또는 전화 설문을 통해 서비스 불만족 요인을 구체적으로 수집할 수 있습니다.
+2. 불만족 요인이 높은 항목(예: 요금제, 고객 지원 등)에 대해 개선 방안을 마련하고, 개선된 내용을 뉴스레터나 공지사항을 통해 고객에게 적극적으로 안내하세요.
+3. 이탈 위험이 높은 고객(최근 이용 빈도 감소 등)을 대상으로 맞춤형 할인 쿠폰이나 특별 프로모션을 제공하여 재이용을 유도하세요. 예시: 1개월 무료 이용권 제공 등.
 
 질문: {user_question}
 """
+
 
 @openai_ns.route('/analyze')
 class OpenaiAnalyze(Resource):
@@ -89,7 +95,7 @@ class OpenaiAnalyze(Resource):
             }, 200
         except Exception as e:
             # 에러 발생 시 메시지 반환
-            return {"error": "분석 중 오류가 발생했습니다."}, 500
+            return {"error": "분석 중 오류가 발생했습니다." + str(e)}, 500
         finally:
             # 임시 파일 삭제
             import shutil

@@ -25,7 +25,7 @@ def analyze_csv(csv_path: str, question: str) -> str:
         raise FileNotFoundError(f"CSV 파일을 찾을 수 없습니다: {csv_path}")
 
     llm = ChatOpenAI(
-        model_name="gpt-4o",  # model → model_name
+        model="gpt-4o",
         api_key=OPENAI_API_KEY,
         temperature=0
     )
@@ -33,8 +33,8 @@ def analyze_csv(csv_path: str, question: str) -> str:
         llm,
         csv_path,
         verbose=True,
-        allow_dangerous_code=False,
-        agent_executor_kwargs={"handle_parsing_errors": True}  # 옵션은 agent_executor_kwargs로 전달
+        allow_dangerous_code=True,
+        agent_executor_kwargs={"handle_parsing_errors": True}
     )
     response = agent.run(question)
     return response
