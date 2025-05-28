@@ -1,4 +1,5 @@
 from flask import request, make_response, Blueprint
+from flask_restx import Namespace, Resource
 from io import StringIO
 import csv
 from datetime import datetime, timezone
@@ -8,7 +9,8 @@ from modules.dash_board.stat_cards import get_increase_decrease_rate, get_cancel
 from modules.devide.subscription import get_subscription_data
 from modules.dash_board.line_graph import calculate_increase_decrease_per  # 추가
 
-dashboard_bp = Blueprint('python-api/dashboard', __name__)
+dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
+dashboard_ns = Namespace('dashboard', description="Dashboard related APIs")
 
 @dashboard_bp.route('', methods=['GET'])
 def dashboard_index():
@@ -79,3 +81,11 @@ def dashboard_index():
     response.headers['Content-Disposition'] = f'attachment; filename={origin_table}_metrics.csv'
 
     return response
+
+@dashboard_ns.route('/test')
+class TestAnalysis(Resource):
+    def get(self):
+        """테스트용 API"""
+        # 여기에 테스트용 로직을 추가할 수 있습니다.
+        # 예를 들어, 간단한 메시지를 반환하는 API
+        return {"message": "This is a test API for analysis."}, 200
