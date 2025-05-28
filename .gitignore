@@ -11,7 +11,6 @@ instance/*
 !instance/.gitignore
 .webassets-cache
 .env
-openai_key.env
 ### Flask.Python Stack ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -377,5 +376,5 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
-# End of https://www.toptal.com/developers/gitignore/api/python,pycharm,flaskopenai_key.env
+# End of https://www.toptal.com/developers/gitignore/api/python,pycharm,flask
 openai_key.env

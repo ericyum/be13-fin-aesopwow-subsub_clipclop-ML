@@ -54,11 +54,23 @@ class OpenaiAnalyze(Resource):
         """
         args = analyze_parser.parse_args()
         file = args["file"]
+
+        # 파일 검증
+        if not file.filename.lower().endswith('.csv'):
+            return {"error": "CSV 파일만 업로드 가능합니다."}, 400
+
+        # 파일 크기 제한 (예: 10MB)
+        if hasattr(file, 'content_length') and file.content_length > 10 * 1024 * 1024:
+            return {"error": "파일 크기는 10MB를 초과할 수 없습니다."}, 400
+
         user_question = args.get("question") or '이 데이터에서 주요 인사이트와 행동 추천을 한국어로 알려줘'
 
         # 파일명 중복 방지
         unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-        csv_path = f"/tmp/{unique_filename}"
+        # 안전한 임시 디렉토리 사용
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        csv_path = os.path.join(temp_dir, unique_filename)
         file.save(csv_path)
 
         full_prompt = PROMPT_TEMPLATE.format(user_question=user_question)
@@ -77,34 +89,9 @@ class OpenaiAnalyze(Resource):
             }, 200
         except Exception as e:
             # 에러 발생 시 메시지 반환
-            return {"error": str(e)}, 500
+            return {"error": "분석 중 오류가 발생했습니다."}, 500
         finally:
             # 임시 파일 삭제
-            if os.path.exists(csv_path):
-                os.remove(csv_path)
-
-def analyze():
-    """
-    CSV 파일과 자연어 질문을 받아 분석 및 인사이트/추천을 반환하는 엔드포인트
-    """
-    file = request.files['file']
-    user_question = request.form.get('question', '이 데이터에서 주요 인사이트와 행동 추천을 한국어로 알려줘')
-
-    unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-    csv_path = f"/tmp/{unique_filename}"
-    file.save(csv_path)
-
-    full_prompt = PROMPT_TEMPLATE.format(user_question=user_question)
-
-    try:
-        llm_response = analyze_csv(csv_path, full_prompt)
-        insight = extract_insight_and_recommendation(llm_response)
-        return jsonify({
-            "summary": insight.summary,
-            "recommendations": insight.recommendations
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
+            import shutil
+            if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
