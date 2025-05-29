@@ -50,7 +50,6 @@ Final Answer:
 질문: {user_question}
 """
 
-
 @openai_ns.route('/analyze')
 class OpenaiAnalyze(Resource):
     @openai_ns.expect(analyze_parser)

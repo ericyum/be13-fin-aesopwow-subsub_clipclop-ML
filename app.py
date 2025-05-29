@@ -11,14 +11,16 @@ from routes.info_db_routes import info_db_bp
 from routes.info_column_routes import info_column_bp
 from routes.analysis_routes import analysis_bp
 from routes.segments_routes import segments_bp
-from routes.openai_routes import openai_bp, openai_ns
+from routes.openai_routes import openai_bp
+from routes.shap_route import shap_bp
 
 # API Namespaces
 from routes.analysis_routes import analysis_ns
 from routes.dash_board_routes import dashboard_ns
 from routes.info_db_routes import info_db_ns
 from routes.info_column_routes import info_column_ns
-
+from routes.openai_routes import openai_ns
+from routes.shap_route import shap_ns
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -43,6 +45,7 @@ api.add_namespace(info_column_ns)
 api.add_namespace(analysis_ns)
 api.add_namespace(dashboard_ns)
 api.add_namespace(openai_ns)
+api.add_namespace(shap_ns)
 
 # Blueprint 등록
 app.register_blueprint(info_db_bp)
@@ -51,6 +54,7 @@ app.register_blueprint(analysis_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(segments_bp)
 app.register_blueprint(openai_bp)
+app.register_blueprint(shap_bp)
 
 # API Blueprint 등록
 app.register_blueprint(api_bp)
