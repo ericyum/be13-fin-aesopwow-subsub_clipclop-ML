@@ -1,10 +1,20 @@
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, jsonify
 import os
 from datetime import datetime
 import pandas as pd
 from modules.common.user.user_utils import load_data
+from modules.common.s3_client import get_s3_client, bucket_name
 
 segments_bp = Blueprint('segments', __name__, url_prefix='/api/segment')
+
+def upload_file_to_s3(file_path, s3_key):
+    s3_client = get_s3_client()
+    try:
+        s3_client.upload_file(file_path, bucket_name, s3_key)
+        print(f"{file_path} 파일이 S3에 성공적으로 업로드되었습니다. 위치: s3://{bucket_name}/{s3_key}")
+    except Exception as e:
+        print(f"S3 업로드 실패: {e}")
+        raise
 
 @segments_bp.route('/download', methods=['GET'])
 def segment_download():
@@ -14,13 +24,13 @@ def segment_download():
     target_column = request.args.get('target_column', type=str)
 
     if info_db_no is None or not user_info or not user_sub_info or not target_column:
-        return "info_db_no, user_info, user_sub_info, target_column 파라미터가 필요합니다.", 400
+        return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info, target_column 파라미터가 필요합니다."}), 400
 
     try:
         df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
         df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
     except Exception as e:
-        return f"데이터 로드 중 오류: {str(e)}", 500
+        return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
     if 'user_no' in df_user.columns:
         df_user.rename(columns={'user_no': 'user_id'}, inplace=True)
@@ -33,16 +43,18 @@ def segment_download():
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
     if missing_user:
-        return f"df_user에 다음 컬럼이 없습니다: {missing_user}", 500
+        return jsonify({"success": False, "message": f"df_user에 다음 컬럼이 없습니다: {missing_user}"}), 500
     if missing_sub:
-        return f"df_sub에 다음 컬럼이 없습니다: {missing_sub}", 500
+        return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
     df_user = df_user[user_columns]
     df_sub = df_sub[sub_columns]
     df = pd.merge(df_user, df_sub, on='user_id', how='left')
 
     now = datetime.now()
+    now_str = now.strftime("%Y%m%d%H%M%S")
 
+    # 세그먼트 분류
     if target_column == 'watch_time':
         def get_watch_time_segment(hour):
             if pd.isna(hour):
@@ -71,11 +83,7 @@ def segment_download():
         df['segment'] = df['subscription_type'].apply(get_sub_segment)
 
     elif target_column == 'favorite_genre':
-        def get_genre_segment(genre):
-            if pd.isna(genre):
-                return 'unknown'
-            return str(genre)
-        df['segment'] = df['favorite_genre'].apply(get_genre_segment)
+        df['segment'] = df['favorite_genre'].fillna('unknown').astype(str)
 
     elif target_column == 'last_login':
         def get_login_segment(last_login):
@@ -97,22 +105,67 @@ def segment_download():
                 return 'Forgotten User'
         df['segment'] = df['last_login'].apply(get_login_segment)
     else:
-        return f"Unknown target_column: {target_column}", 400
+        return jsonify({"success": False, "message": f"Unknown target_column: {target_column}"}), 400
 
-    # 파일 저장 경로
-    now_str = now.strftime("%Y%m%d%H%M%S")
+    # 로컬 파일 저장
     save_dir = "csv_exports"
     os.makedirs(save_dir, exist_ok=True)
-    filename = f"segment_{target_column}_{now_str}.csv"
-    file_path = os.path.join(save_dir, filename)
+    local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
+    file_path = os.path.join(save_dir, local_filename)
 
     final_columns = ['segment'] + user_columns + ['subscription_type']
-    df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    try:
+        df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    except Exception as e:
+        return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
-    # 파일 자체 반환
-    return send_file(
-        file_path,
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name=filename
-    )
+    # S3 업로드 (경로 예시: info_db_no/segment/target_column/파일명)
+    s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
+    try:
+        upload_file_to_s3(file_path, s3_key)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"S3 업로드 중 오류: {str(e)}"}), 500
+
+    return jsonify({
+        "success": True,
+        "filename": local_filename,
+        "s3_key": s3_key
+    }), 200
+
+
+@segments_bp.route('/list', methods=['GET'])
+def segment_file_list():
+    info_db_no = request.args.get('info_db_no', type=int)
+    target_column = request.args.get('target_column', type=str)
+
+    if not info_db_no or not target_column:
+        return jsonify({'files': []}), 400
+
+    prefix = f"{info_db_no}/segment/{target_column}/"
+    s3_client = get_s3_client()
+
+    try:
+        file_keys = []
+        continuation_token = None
+        while True:
+            if continuation_token:
+                response = s3_client.list_objects_v2(
+                    Bucket=bucket_name, Prefix=prefix, ContinuationToken=continuation_token
+                )
+            else:
+                response = s3_client.list_objects_v2(
+                    Bucket=bucket_name, Prefix=prefix
+                )
+            for obj in response.get('Contents', []):
+                key = obj['Key']
+                if key.endswith('.csv'):
+                    file_keys.append(key)
+            if response.get('IsTruncated'):
+                continuation_token = response.get('NextContinuationToken')
+            else:
+                break
+    except Exception as e:
+        return jsonify({'files': []}), 500
+
+    file_keys.sort(reverse=True)
+    return jsonify({'files': file_keys})
