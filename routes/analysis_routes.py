@@ -149,9 +149,9 @@ class CohortAnalysis(Resource):
                 for val in result:
                     if val is None:
                         continue
-                    if val < 200:
+                    if val < 30:
                         buckets["Low"] += 1
-                    elif val < 700:
+                    elif val < 60:
                         buckets["Medium"] += 1
                     else:
                         buckets["High"] += 1
