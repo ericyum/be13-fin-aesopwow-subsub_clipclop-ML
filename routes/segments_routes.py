@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 import os
+import io
 from datetime import datetime
+from flask import send_file, jsonify
 import pandas as pd
 from modules.common.user.user_utils import load_data
 from modules.common.s3_client import get_s3_client, bucket_name
@@ -169,3 +171,20 @@ def segment_file_list():
 
     file_keys.sort(reverse=True)
     return jsonify({'files': file_keys})
+
+@segments_bp.route('/list/<path:s3_key>', methods=['GET'])
+def get_segment_csv(s3_key):
+    s3_client = get_s3_client()
+    try:
+        obj = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        file_stream = io.BytesIO(obj['Body'].read())
+        filename = s3_key.split('/')[-1]
+        return send_file(
+            file_stream,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        print(f"[ERROR] 파일 다운로드 실패: {e}")  # 에러 로그 추가!
+        return jsonify({"success": False, "message": f"파일 다운로드 실패: {str(e)}"}), 500
