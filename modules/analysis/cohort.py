@@ -122,150 +122,145 @@ def get_user_info_by_year(info_db_no, origin_table, year):
         print(mapped_result)
         return mapped_result
     
-def analysis_cohort_PCL(info_db_no, target_table, year, target_month):
-    info_db = get_info_db_by_info_db_no(info_db_no).to_dict()
-    user = info_db.get('user')
-    host = info_db.get('host')
-    password = info_db.get('password')
-    port = info_db.get('port')
-    name = info_db.get('name')
+def analysis_cohort_PCL(info_db_no, target_table, target_date):
+    target_month = target_date.month
 
+    start_date = f"{target_date.year}-{target_date.month:02d}-01"
+    if target_month == 12:
+        end_date = f"{target_date.year + 1}-01-01"
+    else:
+        end_date = f"{target_date.year}-{target_date.month + 1:02d}-01"
+
+    info_db = get_info_db_by_info_db_no(info_db_no).to_dict()
     if not info_db:
         return None
-    else:
-        engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}")
 
-        # Get user sub info columns
-        target_table_columns = get_info_columns_by_info_db_no_origin_table(info_db_no, target_table)
-        target_table_mapped_columns = {col.origin_column: col.analysis_column for col in target_table_columns}
-        origin_mapped_columns = {col.analysis_column: col.origin_column for col in target_table_columns}
+    user, host, password, port, name = (
+        info_db.get('user'),
+        info_db.get('host'),
+        info_db.get('password'),
+        info_db.get('port'),
+        info_db.get('name'),
+    )
 
-        metadata = MetaData()
-        target_table_external_table = Table(target_table, metadata, autoload_with=engine)
+    engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}")
+    target_table_columns = get_info_columns_by_info_db_no_origin_table(info_db_no, target_table)
+    target_table_mapped_columns = {col.origin_column: col.analysis_column for col in target_table_columns}
+    origin_mapped_columns = {col.analysis_column: col.origin_column for col in target_table_columns}
 
-        with engine.connect() as conn:
-            ended_at = getattr(target_table_external_table.c, origin_mapped_columns.get('ended_at'))
-            user_id = getattr(target_table_external_table.c, origin_mapped_columns.get('user_id'))
-            watch_time_hour = getattr(target_table_external_table.c, origin_mapped_columns.get('watch_time_hour'))
+    metadata = MetaData()
+    target_table_external_table = Table(target_table, metadata, autoload_with=engine)
 
-            # 1년치 시작/끝 날짜 계산
-            start_year = year
-            end_year = year + 1 if target_month != 1 else year
+    with engine.connect() as conn:
+        ended_at = getattr(target_table_external_table.c, origin_mapped_columns.get('ended_at'))
+        user_id = getattr(target_table_external_table.c, origin_mapped_columns.get('user_id'))
+        watch_time_hour = getattr(target_table_external_table.c, origin_mapped_columns.get('watch_time_hour'))
 
-            start_date = f"{start_year}-{target_month:02d}-01"
-            end_month = (target_month - 1) or 12  # 0월 방지
-            end_date = f"{end_year}-{end_month:02d}-01"
+        target_users_query = (
+            select(user_id)
+            .where(
+                and_(
+                    ended_at >= start_date,
+                    ended_at < end_date,
+                    extract('month', ended_at) == target_month
+                )
+            )
+            .group_by(user_id)
+        )
+        result = conn.execute(target_users_query).mappings().all()
+        key_name = list(result[0].keys())[0] if result else None
+        target_user_ids = [user[key_name] for user in result]
 
-            # 첫 달 활동 사용자만 뽑기
-            target_users_query = (
-                select(user_id)
+        if target_user_ids:
+            next_year = target_date.year + 1
+            query = (
+                select(
+                    user_id,
+                    extract('month', ended_at).label('month'),
+                    extract('year', ended_at).label('year'),
+                    watch_time_hour
+                )
                 .where(
                     and_(
                         ended_at >= start_date,
-                        ended_at < end_date,
-                        extract('month', ended_at) == target_month
+                        ended_at < f"{next_year}-{target_month:02d}-01",
+                        user_id.in_(target_user_ids)
                     )
                 )
-                .group_by(user_id)
+                .group_by(
+                    user_id,
+                    extract('year', ended_at),
+                    extract('month', ended_at)
+                )
+                .order_by(user_id, 'year', 'month')
             )
-            result = conn.execute(target_users_query).mappings().all()
+            result = conn.execute(query).mappings().all()
 
-            key_name = list(result[0].keys())[0] if result else None
-            target_user_ids = [user[key_name] for user in result]
+        target_table_mapped_result = [
+            {target_table_mapped_columns.get(k, k): v for k, v in row.items()}
+            for row in result
+        ]
 
-            # 전체 1년치 데이터 가져오기
-            if target_user_ids:
-                query = (
-                    select(
-                        user_id,
-                        extract('month', ended_at).label('month'),
-                        extract('year', ended_at).label('year'),
-                        watch_time_hour
-                    )
-                    .where(
-                        and_(
-                            ended_at >= start_date,
-                            ended_at < end_date,
-                            user_id.in_(target_user_ids)
-                        )
-                    )
-                    .group_by(
-                        user_id,
-                        extract('year', ended_at),
-                        extract('month', ended_at)
-                    )
-                    .order_by(user_id, 'year', 'month')
-                )
-                result = conn.execute(query).mappings().all()
+        user_month_data = defaultdict(lambda: {m: None for m in range(1, 13)})
+        month_offset = target_month - 1
 
-            target_table_mapped_result = [
-                {target_table_mapped_columns.get(k, k): v for k, v in row.items()}
-                for row in result
-            ]
+        for row in target_table_mapped_result:
+            user_id = row['user_id']
+            year_val = int(row['year'])
+            month_val = int(row['month'])
+            adjusted_month = (month_val - month_offset - 1) % 12 + 1
+            watch_time_hour = row['watch_time_hour'] if row['watch_time_hour'] is not None else 0
+            user_month_data[user_id][adjusted_month] = watch_time_hour
 
-            # 월 단위로 처리 (연도별로 월을 1~12로 보정)
-            user_month_data = defaultdict(lambda: {m: None for m in range(1, 13)})
-            month_offset = target_month - 1
+    result = {user_id: dict(monthly_data) for user_id, monthly_data in user_month_data.items()}
+    user_category = {}
+    p_users, c_users, l_users = [], [], []
 
-            for row in target_table_mapped_result:
-                user_id = row['user_id']
-                year_val = int(row['year'])
-                month_val = int(row['month'])
-                # 기준 시작월부터 offset으로 월 정렬
-                adjusted_month = (month_val - month_offset - 1) % 12 + 1
-                watch_time_hour = row['watch_time_hour'] if row['watch_time_hour'] is not None else 0
-                user_month_data[user_id][adjusted_month] = watch_time_hour
+    for user_id, monthly_data in user_month_data.items():
+        first_month_hours = monthly_data.get(1) or 0
+        if first_month_hours >= 60:
+            user_category[user_id] = 'P'
+            p_users.append(user_id)
+        elif first_month_hours >= 30:
+            user_category[user_id] = 'C'
+            c_users.append(user_id)
+        else:
+            user_category[user_id] = 'L'
+            l_users.append(user_id)
 
-        result = {user_id: dict(monthly_data) for user_id, monthly_data in user_month_data.items()}
+    monthly_dropout_counts = {month: {'P': 0, 'C': 0, 'L': 0} for month in range(1, 13)}
 
-        # 사용자별로 첫달 사용시간에 따라 분류
-        user_category = {}
-        p_users, c_users, l_users = [], [], []
-
+    for month in range(1, 13):
         for user_id, monthly_data in user_month_data.items():
-            first_month_hours = monthly_data.get(1) or 0
-            if first_month_hours >= 60:
-                user_category[user_id] = 'P'
-                p_users.append(user_id)
-            elif first_month_hours >= 30:
-                user_category[user_id] = 'C'
-                c_users.append(user_id)
-            else:
-                user_category[user_id] = 'L'
-                l_users.append(user_id)
+            watch_time = monthly_data.get(month)
+            if watch_time is None:
+                group = user_category.get(user_id)
+                if group:
+                    monthly_dropout_counts[month][group] += 1
 
-        monthly_dropout_counts = {month: {'P': 0, 'C': 0, 'L': 0} for month in range(1, 13)}
+    group_total_counts = {
+        'P': len(p_users),
+        'C': len(c_users),
+        'L': len(l_users)
+    }
 
-        for month in range(1, 13):
-            for user_id, monthly_data in user_month_data.items():
-                watch_time = monthly_data.get(month)
-                if watch_time is None:
-                    group = user_category.get(user_id)
-                    if group:
-                        monthly_dropout_counts[month][group] += 1
+    p_retention = calculate_monthly_retention_by_churn(group_total_counts['P'], {m: monthly_dropout_counts[m]['P'] for m in range(1, 13)})
+    c_retention = calculate_monthly_retention_by_churn(group_total_counts['C'], {m: monthly_dropout_counts[m]['C'] for m in range(1, 13)})
+    l_retention = calculate_monthly_retention_by_churn(group_total_counts['L'], {m: monthly_dropout_counts[m]['L'] for m in range(1, 13)})
 
-        group_total_counts = {
-            'P': len(p_users),
-            'C': len(c_users),
-            'L': len(l_users)
-        }
-
-        p_retention = calculate_monthly_retention_by_churn(group_total_counts['P'], {m: monthly_dropout_counts[m]['P'] for m in range(1, 13)})
-        c_retention = calculate_monthly_retention_by_churn(group_total_counts['C'], {m: monthly_dropout_counts[m]['C'] for m in range(1, 13)})
-        l_retention = calculate_monthly_retention_by_churn(group_total_counts['L'], {m: monthly_dropout_counts[m]['L'] for m in range(1, 13)})
-
-        try:
-            save_pcl_csv_to_s3(info_db_no, p_retention, c_retention, l_retention)
-            return jsonify({
-                "success": True,
-                "message": "CSV 파일이 S3에 저장되었습니다.",
-            }), 200
-        except Exception as e:
-            print(f"CSV 저장 중 오류 발생: {e}")
-            return jsonify({"success": False, "error": str(e)}), 500
+    try:
+        save_pcl_csv_to_s3(info_db_no, p_retention, c_retention, l_retention)
+        return jsonify({
+            "success": True,
+            "message": "CSV 파일이 S3에 저장되었습니다.",
+        }), 200
+    except Exception as e:
+        print(f"CSV 저장 중 오류 발생: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-def analysis_cohort_SubscriptionType(info_db_no, target_table, year, target_month):
+
+def analysis_cohort_SubscriptionType(info_db_no, target_table, target_date):
     info_db = get_info_db_by_info_db_no(info_db_no).to_dict()
     user = info_db.get('user')
     host = info_db.get('host')
@@ -291,12 +286,14 @@ def analysis_cohort_SubscriptionType(info_db_no, target_table, year, target_mont
             user_id = getattr(target_table_external_table.c, origin_mapped_columns.get('user_id'))
             subscription_type = getattr(target_table_external_table.c, origin_mapped_columns.get('subscription_type'))
 
-            # 1년치 시작/끝 날짜 계산
-            start_year = year
-            end_year = year + 1 if target_month != 1 else year
+            # target_date로부터 연, 월 추출
+            year = target_date.year
+            month = target_date.month
 
-            start_date = f"{start_year}-{target_month:02d}-01"
-            end_month = (target_month - 1) or 12  # 0월 방지
+            # 1년치 시작/끝 날짜 계산
+            start_date = f"{year}-{month:02d}-01"
+            end_year = year + 1 if month != 1 else year
+            end_month = (month - 1) or 12  # 0월 방지
             end_date = f"{end_year}-{end_month:02d}-01"
 
             # 첫 달 활동 사용자만 뽑기
@@ -306,7 +303,7 @@ def analysis_cohort_SubscriptionType(info_db_no, target_table, year, target_mont
                     and_(
                         ended_at >= start_date,
                         ended_at < end_date,
-                        extract('month', ended_at) == target_month
+                        extract('month', ended_at) == month
                     )
                 )
                 .group_by(user_id)
@@ -348,13 +345,12 @@ def analysis_cohort_SubscriptionType(info_db_no, target_table, year, target_mont
 
             # 월 단위로 처리 (연도별로 월을 1~12로 보정)
             user_month_data = defaultdict(lambda: {m: None for m in range(1, 13)})
-            month_offset = target_month - 1
+            month_offset = month - 1
 
             for row in target_table_mapped_result:
                 user_id = row['user_id']
                 year_val = int(row['year'])
                 month_val = int(row['month'])
-                # 기준 시작월부터 offset으로 월 정렬
                 adjusted_month = (month_val - month_offset - 1) % 12 + 1
                 subscription_type = row['subscription_type'] if row['subscription_type'] is not None else None
                 user_month_data[user_id][adjusted_month] = subscription_type
@@ -406,6 +402,7 @@ def analysis_cohort_SubscriptionType(info_db_no, target_table, year, target_mont
         except Exception as e:
             print(f"CSV 저장 중 오류 발생: {e}")
             return jsonify({"success": False, "error": str(e)}), 500
+
 
 def analysis_cohort_FavGenre(info_db_no, target_table_user, target_table_sub, target_date):
     info_db = get_info_db_by_info_db_no(info_db_no).to_dict()

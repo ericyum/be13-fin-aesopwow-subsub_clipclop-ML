@@ -224,7 +224,7 @@ class CohortAnalysis(Resource):
             file_content,
             mimetype='text/csv',
             headers={
-                "Content-Disposition": f"attachment; filename={filename}.csv"
+                "Content-Disposition": f'attachment; filename="{filename}.csv"'
             }
         )
 
@@ -235,12 +235,12 @@ class CohortAnalysis(Resource):
         target_table_user = args["target_table_user"]
         target_table_sub = args["target_table_sub"]
         analysis_type = args["analysis_type"]
-        target_date = args.get("target_date")
+        target_date = datetime.strptime(args.get("target_date"), "%Y-%m-%d")
 
         if analysis_type == "PCL":
-            result = analysis_cohort_PCL(info_db_no, target_table_user, target_date)
+            result = analysis_cohort_PCL(info_db_no, target_table_sub, target_date)
         elif analysis_type == "SubscriptionType":
-            result = analysis_cohort_SubscriptionType(info_db_no, target_table_user, target_date)
+            result = analysis_cohort_SubscriptionType(info_db_no, target_table_sub, target_date)
         elif analysis_type == "FavGenre":
             result = analysis_cohort_FavGenre(info_db_no, target_table_user, target_table_sub, target_date)
         elif analysis_type == "LastLogin":
