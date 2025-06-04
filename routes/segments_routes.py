@@ -1,76 +1,190 @@
-from flask import Blueprint, request, make_response
-import re
-import csv
-from io import StringIO
+from flask import Blueprint, request, jsonify
+import os
+import io
+from datetime import datetime
+from flask import send_file, jsonify
+import pandas as pd
+from modules.common.user.user_utils import load_data
+from modules.common.s3_client import get_s3_client, bucket_name
 
-from modules.common.user.user_utils import (
-    determine_subscription_model,
-    calculate_percentages,
-    determine_watch_time_segment,
-    determine_genre_segment,
-    determine_last_login_segment,
-    load_data
-)
-from modules.devide.segments import add_segments
+segments_bp = Blueprint('segments', __name__, url_prefix='/api/segment')
 
-segments_bp = Blueprint('/segments', __name__)
+def upload_file_to_s3(file_path, s3_key):
+    s3_client = get_s3_client()
+    try:
+        s3_client.upload_file(file_path, bucket_name, s3_key)
+        print(f"{file_path} 파일이 S3에 성공적으로 업로드되었습니다. 위치: s3://{bucket_name}/{s3_key}")
+    except Exception as e:
+        print(f"S3 업로드 실패: {e}")
+        raise
 
-@segments_bp.route('/csv', methods=['GET'])
-def segments_csv():
+@segments_bp.route('/download', methods=['GET'])
+def segment_download():
     info_db_no = request.args.get('info_db_no', type=int)
-    origin_table = request.args.get('origin_table', type=str)
-    domain = request.args.get('domain', 'subscription')
+    user_info = request.args.get('user_info', type=str)
+    user_sub_info = request.args.get('user_sub_info', type=str)
+    target_column = request.args.get('target_column', type=str)
 
-    if info_db_no is None or not origin_table:
-        return "info_db_no와 origin_table 파라미터가 필요합니다.", 400
+    if info_db_no is None or not user_info or not user_sub_info or not target_column:
+        return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info, target_column 파라미터가 필요합니다."}), 400
 
     try:
-        df = load_data(info_db_no, origin_table)
-        if df.empty:
-            return "해당 테이블에 데이터가 없습니다.", 404
-        df = add_segments(df)
+        df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
+        df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
     except Exception as e:
-        return f"데이터 로드 중 오류: {str(e)}", 500
+        return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
-    # CSV 파일 생성
-    csv_buffer = StringIO()
-    writer = csv.writer(csv_buffer)
+    if 'user_no' in df_user.columns:
+        df_user.rename(columns={'user_no': 'user_id'}, inplace=True)
+    if 'user_no' in df_sub.columns:
+        df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
-    # 헤더 작성
-    if domain == 'subscription':
-        writer.writerow(['segment', 'count', 'percentage'])
-        basic, standard, premium = determine_subscription_model(df)
-        perc = calculate_percentages(basic, standard, premium)
-        writer.writerow(['basic', len(basic), perc[0]])
-        writer.writerow(['standard', len(standard), perc[1]])
-        writer.writerow(['premium', len(premium), perc[2]])
-    elif domain == 'watch_time':
-        writer.writerow(['segment', 'count', 'percentage'])
-        light, core, power = determine_watch_time_segment(df)
-        perc = calculate_percentages(light, core, power)
-        writer.writerow(['light', len(light), perc[0]])
-        writer.writerow(['core', len(core), perc[1]])
-        writer.writerow(['power', len(power), perc[2]])
-    elif domain == 'genre':
-        genre_names = ["drama", "sci-fi", "comedy", "documentary", "romance", "action", "horror"]
-        genre_groups = determine_genre_segment(df)
-        perc = calculate_percentages(*genre_groups)
-        writer.writerow(['segment', 'count', 'percentage'])
-        for name, group, p in zip(genre_names, genre_groups, perc):
-            writer.writerow([name, len(group), p])
-    elif domain == 'last_login':
-        writer.writerow(['segment', 'count', 'percentage'])
-        forgotten, dormant, frequent = determine_last_login_segment(df)
-        perc = calculate_percentages(forgotten, dormant, frequent)
-        writer.writerow(['forgotten', len(forgotten), perc[0]])
-        writer.writerow(['dormant', len(dormant), perc[1]])
-        writer.writerow(['frequent', len(frequent), perc[2]])
+    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
+    sub_columns = ['user_id', 'subscription_type']
+
+    missing_user = [col for col in user_columns if col not in df_user.columns]
+    missing_sub = [col for col in sub_columns if col not in df_sub.columns]
+    if missing_user:
+        return jsonify({"success": False, "message": f"df_user에 다음 컬럼이 없습니다: {missing_user}"}), 500
+    if missing_sub:
+        return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
+
+    df_user = df_user[user_columns]
+    df_sub = df_sub[sub_columns]
+    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+
+    now = datetime.now()
+    now_str = now.strftime("%Y%m%d%H%M%S")
+
+    # 세그먼트 분류
+    if target_column == 'watch_time':
+        def get_watch_time_segment(hour):
+            if pd.isna(hour):
+                return 'unknown'
+            if hour < 30:
+                return 'Light User'
+            elif hour < 60:
+                return 'Core User'
+            else:
+                return 'Power User'
+        df['segment'] = df['watch_time_hour'].apply(get_watch_time_segment)
+
+    elif target_column == 'subscription':
+        def get_sub_segment(sub):
+            if pd.isna(sub):
+                return 'unknown'
+            sub = str(sub).lower()
+            if sub == 'basic':
+                return 'Basic'
+            elif sub == 'standard':
+                return 'Standard'
+            elif sub == 'premium':
+                return 'Premium'
+            else:
+                return 'unknown'
+        df['segment'] = df['subscription_type'].apply(get_sub_segment)
+
+    elif target_column == 'favorite_genre':
+        df['segment'] = df['favorite_genre'].fillna('unknown').astype(str)
+
+    elif target_column == 'last_login':
+        def get_login_segment(last_login):
+            if pd.isna(last_login):
+                return 'unknown'
+            if isinstance(last_login, str):
+                try:
+                    last_login_dt = datetime.strptime(last_login, "%Y-%m-%d")
+                except:
+                    return 'unknown'
+            else:
+                last_login_dt = last_login
+            diff = (now - last_login_dt).days
+            if diff <= 7:
+                return 'Frequent User'
+            elif diff <= 30:
+                return 'Dormant User'
+            else:
+                return 'Forgotten User'
+        df['segment'] = df['last_login'].apply(get_login_segment)
     else:
-        return f"Unknown domain: {domain}", 400
+        return jsonify({"success": False, "message": f"Unknown target_column: {target_column}"}), 400
 
-    # 응답 반환
-    response = make_response(csv_buffer.getvalue())
-    response.headers['Content-Type'] = 'text/csv'
-    safe_table_name = re.sub(r'[^\w\-_]', '_', origin_table)
-    response.headers['Content-Disposition'] = f'attachment; filename={safe_table_name}_{domain}_segments.csv'
-    return response
+    # 로컬 파일 저장
+    save_dir = "csv_exports"
+    os.makedirs(save_dir, exist_ok=True)
+    local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
+    file_path = os.path.join(save_dir, local_filename)
+
+    final_columns = ['segment'] + user_columns + ['subscription_type']
+    try:
+        df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    except Exception as e:
+        return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
+
+    # S3 업로드 (경로 예시: info_db_no/segment/target_column/파일명)
+    s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
+    try:
+        upload_file_to_s3(file_path, s3_key)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"S3 업로드 중 오류: {str(e)}"}), 500
+
+    return jsonify({
+        "success": True,
+        "filename": local_filename,
+        "s3_key": s3_key
+    }), 200
+
+
+@segments_bp.route('/list', methods=['GET'])
+def segment_file_list():
+    info_db_no = request.args.get('info_db_no', type=int)
+    target_column = request.args.get('target_column', type=str)
+
+    if not info_db_no or not target_column:
+        return jsonify({'files': []}), 400
+
+    prefix = f"{info_db_no}/segment/{target_column}/"
+    s3_client = get_s3_client()
+
+    try:
+        file_keys = []
+        continuation_token = None
+        while True:
+            if continuation_token:
+                response = s3_client.list_objects_v2(
+                    Bucket=bucket_name, Prefix=prefix, ContinuationToken=continuation_token
+                )
+            else:
+                response = s3_client.list_objects_v2(
+                    Bucket=bucket_name, Prefix=prefix
+                )
+            for obj in response.get('Contents', []):
+                key = obj['Key']
+                if key.endswith('.csv'):
+                    file_keys.append(key)
+            if response.get('IsTruncated'):
+                continuation_token = response.get('NextContinuationToken')
+            else:
+                break
+    except Exception as e:
+        return jsonify({'files': []}), 500
+
+    file_keys.sort(reverse=True)
+    return jsonify({'files': file_keys})
+
+@segments_bp.route('/list/<path:s3_key>', methods=['GET'])
+def get_segment_csv(s3_key):
+    s3_client = get_s3_client()
+    try:
+        obj = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        file_stream = io.BytesIO(obj['Body'].read())
+        filename = s3_key.split('/')[-1]
+        return send_file(
+            file_stream,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        print(f"[ERROR] 파일 다운로드 실패: {e}")  # 에러 로그 추가!
+        return jsonify({"success": False, "message": f"파일 다운로드 실패: {str(e)}"}), 500

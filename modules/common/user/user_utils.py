@@ -3,7 +3,11 @@ from datetime import datetime, timedelta, timezone
 from modules.common.convert_data import convert_data
 from typing import List, Dict, Tuple
 
-def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
+def load_data(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    # 필요에 따라 user_info, user_sub_info, target_column을 조합해 origin_table을 만들 수도 있습니다.
+    # 예시: origin_table = f"{user_info}_{user_sub_info}"
+    # 아래는 예시로 user_info만 origin_table로 사용
+    origin_table = user_info
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
@@ -14,28 +18,28 @@ def load_data(info_db_no: int, origin_table: str) -> pd.DataFrame:
             df[col] = pd.NaT
     return df
 
-def get_total_users(info_db_no: int, origin_table: str) -> pd.DataFrame:
-    return load_data(info_db_no, origin_table)
+def get_total_users(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    return load_data(info_db_no, user_info, user_sub_info, target_column)
 
-def get_new_users(info_db_no: int, origin_table: str) -> pd.DataFrame:
-    df = load_data(info_db_no, origin_table)
+def get_new_users(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    df = load_data(info_db_no, user_info, user_sub_info, target_column)
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     return df[df['created_at'] >= cutoff]
 
-def get_active_users(info_db_no: int, origin_table: str) -> pd.DataFrame:
-    df = load_data(info_db_no, origin_table)
+def get_active_users(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    df = load_data(info_db_no, user_info, user_sub_info, target_column)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if 'ended_at' not in df.columns:
         return df
     return df[(df['ended_at'].isna()) | (df['ended_at'] >= now)]
 
-def get_dormant_users(info_db_no: int, origin_table: str) -> pd.DataFrame:
-    df = load_data(info_db_no, origin_table)
+def get_dormant_users(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    df = load_data(info_db_no, user_info, user_sub_info, target_column)
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     return df[df['logined_at'] < cutoff]
 
-def get_canceled_users(info_db_no: int, origin_table: str) -> pd.DataFrame:
-    df = load_data(info_db_no, origin_table)
+def get_canceled_users(info_db_no: int, user_info: str, user_sub_info: str, target_column: str) -> pd.DataFrame:
+    df = load_data(info_db_no, user_info, user_sub_info, target_column)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     return df[(df['ended_at'].notna()) & (df['ended_at'] < now)]
 
