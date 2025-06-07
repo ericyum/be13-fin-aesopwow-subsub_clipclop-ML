@@ -1,6 +1,9 @@
+import io
 from pathlib import Path
 from langchain_experimental.agents import create_csv_agent
+from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
+import pandas as pd
 from resources.config.openai_config import OPENAI_API_KEY
 
 def analyze_csv(csv_path: str, question: str) -> str:
@@ -35,5 +38,31 @@ def analyze_csv(csv_path: str, question: str) -> str:
         allow_dangerous_code=True,
         agent_executor_kwargs={"handle_parsing_errors": True}
     )
+    response = agent.run(question)
+    return response
+
+def analyze_csv_from_bytes(csv_bytes: bytes, question: str) -> str:
+    if not csv_bytes or not question.strip():
+        raise ValueError("CSV 데이터와 질문은 필수입니다.")
+
+    # 1. CSV 내용을 DataFrame으로 변환
+    df = pd.read_csv(io.StringIO(csv_bytes.decode("utf-8")))
+
+    # 2. LangChain agent 생성
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        api_key=OPENAI_API_KEY,
+        temperature=0
+    )
+
+    agent = create_pandas_dataframe_agent(
+        llm,
+        df,
+        verbose=True,
+        allow_dangerous_code=True,
+        agent_executor_kwargs={"handle_parsing_errors": True}
+    )
+
+    # 3. 질문 실행
     response = agent.run(question)
     return response
