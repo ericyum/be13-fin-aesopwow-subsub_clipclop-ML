@@ -65,6 +65,19 @@ def cohort_list_s3_files(info_db_no, analysis_type):
         print("S3 파일 리스트를 성공적으로 불러왔습니다.")
         return response
     
+def s3_file(filename):
+    # S3에서 파일 직접 읽기
+    response = s3.get_object(Bucket='python-aesop', Key=filename)
+
+    if response.get('ResponseMetadata', {}).get('HTTPStatusCode') != 200:
+        print("S3 파일 가져오기 실패")
+        return None
+
+    # 파일 내용 읽기
+    file_content = response['Body'].read()
+
+    return file_content
+    
 def cohort_s3_file(info_db_no, analysis_type,filename):
     file_path = f'{info_db_no}/cohort/{analysis_type}/{filename}.csv'
 

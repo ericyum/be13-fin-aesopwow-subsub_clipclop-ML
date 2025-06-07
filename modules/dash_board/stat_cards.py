@@ -10,15 +10,15 @@ def get_increase_decrease_rate(
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
-    # created_at 컬럼 datetime으로 변환 및 timezone 제거 (naive)
-    df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce').dt.tz_localize(None)
+    # started_at 컬럼 datetime으로 변환 및 timezone 제거 (naive)
+    df['started_at'] = pd.to_datetime(df['started_at'], errors='coerce').dt.tz_localize(None)
 
     now = pd.Timestamp.now(tz='UTC').tz_localize(None)  # naive datetime
     current_start = now - pd.Timedelta(days=period_days)
     previous_start = current_start - pd.Timedelta(days=period_days)
 
-    current = df[df['created_at'] >= current_start]
-    previous = df[(df['created_at'] >= previous_start) & (df['created_at'] < current_start)]
+    current = df[df['started_at'] >= current_start]
+    previous = df[(df['started_at'] >= previous_start) & (df['started_at'] < current_start)]
 
     if len(previous) == 0:
         return None

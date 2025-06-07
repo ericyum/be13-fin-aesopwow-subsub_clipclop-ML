@@ -11,14 +11,14 @@ def calculate_increase_decrease_per(info_db_no: int, origin_table: str) -> pd.Da
     df = convert_to_dataframe(data)
 
     # 2. 필수 컬럼 검증
-    required_columns = ['created_at', 'subscription_type']
+    required_columns = ['started_at', 'subscription_type']
     if not all(col in df.columns for col in required_columns):
         missing = [col for col in required_columns if col not in df.columns]
         raise KeyError(f"필수 컬럼 누락: {missing}")
 
     # 3. 타임존 일치 및 인덱스 설정
-    df['created_at'] = pd.to_datetime(df['created_at'], utc=True, errors='coerce')
-    df = df.set_index('created_at')
+    df['started_at'] = pd.to_datetime(df['started_at'], utc=True, errors='coerce')
+    df = df.set_index('started_at')
 
     # 4. subscription_type 정제 (빈 문자열도 NaN 처리)
     df['subscription_type'] = df['subscription_type'].replace(r'^\s*$', np.nan, regex=True)
@@ -64,7 +64,7 @@ def calculate_increase_decrease_per(info_db_no: int, origin_table: str) -> pd.Da
 
     # 10. 결과 반환 (월, 증감률)
     monthly_data = monthly_data.reset_index().rename(columns={'index': 'month'})
-    monthly_data.rename(columns={'index': 'month', 'created_at': 'month'}, inplace=True)
+    monthly_data.rename(columns={'index': 'month', 'started_at': 'month'}, inplace=True)
     monthly_data['month'] = monthly_data['month'].dt.strftime('%Y-%m')
 
     return monthly_data[['month', 'increase_decrease_per']]

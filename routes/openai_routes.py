@@ -1,10 +1,13 @@
+import io
 from flask import Blueprint, request, jsonify
 from flask_restx import Namespace, Resource, reqparse
+import pandas as pd
 from werkzeug.datastructures import FileStorage
 import uuid
 import os
 
-from modules.openai.csv_agent_module import analyze_csv
+from modules.analysis.analysis_module import s3_file
+from modules.openai.csv_agent_module import analyze_csv, analyze_csv_from_bytes
 from modules.openai.insight_service_module import extract_insight_and_recommendation
 
 # Blueprint와 Namespace 설정
@@ -14,10 +17,7 @@ openai_ns = Namespace('openai', description="OpenAI related APIs")
 # 파일 업로드 파서 설정
 analyze_parser = reqparse.RequestParser()
 analyze_parser.add_argument(
-    "file", type=FileStorage, location="files", required=True, help="CSV 파일 (필수)"
-)
-analyze_parser.add_argument(
-    "question", type=str, location="form", required=False, help="질문 (선택)"
+    "filename", type=str, required=True, help="CSV 파일명 (필수)"
 )
 
 PROMPT_TEMPLATE = """
@@ -58,31 +58,22 @@ class OpenaiAnalyze(Resource):
         CSV 파일과 자연어 질문을 받아 분석 및 인사이트/추천을 반환하는 엔드포인트
         """
         args = analyze_parser.parse_args()
-        file = args["file"]
+        filename = args["filename"]
 
-        # 파일 검증
-        if not file.filename.lower().endswith('.csv'):
-            return {"error": "CSV 파일만 업로드 가능합니다."}, 400
+        file_content = s3_file(filename)
+        if not file_content:
+            return {"error": "S3에서 파일을 불러올 수 없습니다."}, 500
 
-        # 파일 크기 제한 (예: 10MB)
-        if hasattr(file, 'content_length') and file.content_length > 10 * 1024 * 1024:
-            return {"error": "파일 크기는 10MB를 초과할 수 없습니다."}, 400
+        # if hasattr(file, 'content_length') and file.content_length > 10 * 1024 * 1024:
+        #     return {"error": "파일 크기는 10MB를 초과할 수 없습니다."}, 400
 
         user_question = args.get("question") or '이 데이터에서 주요 인사이트와 행동 추천을 한국어로 알려줘'
-
-        # 파일명 중복 방지
-        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-        # 안전한 임시 디렉토리 사용
-        import tempfile
-        temp_dir = tempfile.mkdtemp()
-        csv_path = os.path.join(temp_dir, unique_filename)
-        file.save(csv_path)
 
         full_prompt = PROMPT_TEMPLATE.format(user_question=user_question)
 
         try:
             # 1. LangChain + OpenAI로 분석 (temperature=0 등 옵션은 analyze_csv 내부에서 적용)
-            llm_response = analyze_csv(csv_path, full_prompt)
+            llm_response = analyze_csv_from_bytes(file_content, full_prompt)
 
             # 2. 인사이트 및 행동 추천 추출
             insight = extract_insight_and_recommendation(llm_response)
@@ -95,8 +86,3 @@ class OpenaiAnalyze(Resource):
         except Exception as e:
             # 에러 발생 시 메시지 반환
             return {"error": "분석 중 오류가 발생했습니다." + str(e)}, 500
-        finally:
-            # 임시 파일 삭제
-            import shutil
-            if 'temp_dir' in locals() and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
