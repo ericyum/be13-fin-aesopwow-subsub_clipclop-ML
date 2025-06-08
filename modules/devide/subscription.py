@@ -24,7 +24,7 @@ def get_subscription_data(
     df = convert_to_dataframe(raw_data)
 
     # datetime 컬럼들 tz 제거 (naive로 변환)
-    for col in ['created_at', 'ended_at', 'last_activity']:
+    for col in ['started_at', 'ended_at', 'last_activity']:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize(None)
 
@@ -52,7 +52,7 @@ def _filter_user_data(
         end: datetime = None,
         one_year_ago: datetime = None
 ) -> pd.DataFrame:
-    for col in ['created_at', 'ended_at', 'last_activity']:
+    for col in ['started_at', 'ended_at', 'last_activity']:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize(None)
 
@@ -63,25 +63,25 @@ def _filter_user_data(
 
     elif users_type == 'total':
         if start and end:
-            return df[(df['created_at'] <= end) & ((df['ended_at'].isna()) | (df['ended_at'] >= start))]
-        return df[df['created_at'].notna()]
+            return df[(df['started_at'] <= end) & ((df['ended_at'].isna()) | (df['ended_at'] >= start))]
+        return df[df['started_at'].notna()]
 
     elif users_type == 'new':
         if start and end:
-            return df[df['created_at'].between(start, end, inclusive='left')]
-        return df[df['created_at'] >= one_year_ago]
+            return df[df['started_at'].between(start, end, inclusive='left')]
+        return df[df['started_at'] >= one_year_ago]
 
     elif users_type == 'active':
         if 'last_activity' not in df.columns:
             return pd.DataFrame(columns=df.columns)
         if start and end:
             return df[
-                (df['created_at'] <= end) &
+                (df['started_at'] <= end) &
                 ((df['ended_at'].isna()) | (df['ended_at'] >= start)) &
                 (df['last_activity'] >= start)
             ]
         return df[
-            (df['created_at'].notna()) &
+            (df['started_at'].notna()) &
             ((df['ended_at'].isna()) | (df['ended_at'] >= one_year_ago)) &
             (df['last_activity'] >= one_year_ago)
         ]
@@ -89,12 +89,12 @@ def _filter_user_data(
     elif users_type == 'dormant':
         if start and end:
             return df[
-                (df['created_at'] < start) &
+                (df['started_at'] < start) &
                 (df['ended_at'].notna()) &
                 (df['ended_at'] < start)
             ]
         return df[
-            (df['created_at'] < one_year_ago) &
+            (df['started_at'] < one_year_ago) &
             (df['ended_at'].notna()) &
             (df['ended_at'] < one_year_ago)
         ]

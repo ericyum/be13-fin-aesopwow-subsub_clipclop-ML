@@ -11,7 +11,7 @@ def load_data(info_db_no: int, user_info: str) -> pd.DataFrame:
     data = convert_data(info_db_no, origin_table)
     df = pd.DataFrame(data)
 
-    for col in ['created_at', 'ended_at', 'logined_at']:
+    for col in ['started_at', 'ended_at', 'logined_at']:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize(None)
         else:
@@ -24,7 +24,7 @@ def get_total_users(info_db_no: int, user_info: str) -> pd.DataFrame:
 def get_new_users(info_db_no: int, user_info: str) -> pd.DataFrame:
     df = load_data(info_db_no, user_info)
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
-    return df[df['created_at'] >= cutoff]
+    return df[df['started_at'] >= cutoff]
 
 def get_active_users(info_db_no: int, user_info: str) -> pd.DataFrame:
     df = load_data(info_db_no, user_info)
