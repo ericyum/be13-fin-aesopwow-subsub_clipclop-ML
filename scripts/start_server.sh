@@ -4,7 +4,7 @@ set -euo pipefail
 cd /home/ubuntu/app || exit 1
 
 # 권한 부여 및 로그 파일 생성
-sudo chmod a+w /home/ubuntu/app
+sudo chmod -R ubuntu:ubuntu /home/ubuntu/app
 touch gunicorn_access.log gunicorn_error.log
 
 # 1. 기존 gunicorn 프로세스 종료
