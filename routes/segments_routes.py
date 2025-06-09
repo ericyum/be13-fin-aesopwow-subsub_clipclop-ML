@@ -6,6 +6,7 @@ from flask import send_file, jsonify
 import pandas as pd
 from modules.common.user.user_utils import load_data
 from modules.common.s3_client import get_s3_client, bucket_name
+from modules.common.convert_data import convert_data
 
 segments_bp = Blueprint('segments', __name__, url_prefix='/api/segment')
 
@@ -29,8 +30,10 @@ def segment_subscription():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
-        df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -40,7 +43,7 @@ def segment_subscription():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -49,9 +52,14 @@ def segment_subscription():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     now = datetime.now()
     now_str = now.strftime("%Y%m%d%H%M%S")
@@ -68,6 +76,7 @@ def segment_subscription():
             return 'Premium'
         else:
             return 'unknown'
+
     df['segment'] = df['subscription_type'].apply(get_sub_segment)
 
     # 로컬 파일 저장
@@ -95,6 +104,8 @@ def segment_subscription():
         "s3_key": s3_key
     }), 200
 
+
+
 @segments_bp.route('/watchtime', methods=['GET'])
 def segment_watchtime():
     info_db_no = request.args.get('info_db_no', type=int)
@@ -106,8 +117,10 @@ def segment_watchtime():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
-        df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -117,7 +130,7 @@ def segment_watchtime():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -126,12 +139,18 @@ def segment_watchtime():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
-    df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
 
-    now = datetime.now()
-    now_str = now.strftime("%Y%m%d%H%M%S")
+    df_user = df_user[user_columns]
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
+
+    # 컬럼명 확인 및 방어코드 추가
+    if 'watch_time_hour' not in df.columns:
+        return jsonify({"success": False, "message": "'watch_time_hour' 컬럼이 데이터에 없습니다."}), 500
 
     def get_watch_time_segment(hour):
         if pd.isna(hour):
@@ -142,11 +161,14 @@ def segment_watchtime():
             return 'Core User'
         else:
             return 'Power User'
+
     df['segment'] = df['watch_time_hour'].apply(get_watch_time_segment)
 
     # 로컬 파일 저장
     save_dir = "csv_exports"
     os.makedirs(save_dir, exist_ok=True)
+    now = datetime.now()
+    now_str = now.strftime("%Y%m%d%H%M%S")
     local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
     file_path = os.path.join(save_dir, local_filename)
 
@@ -156,7 +178,7 @@ def segment_watchtime():
     except Exception as e:
         return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
-    # S3 업로드 (경로 예시: info_db_no/segment/target_column/파일명)
+    # S3 업로드
     s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
     try:
         upload_file_to_s3(file_path, s3_key)
@@ -169,6 +191,8 @@ def segment_watchtime():
         "s3_key": s3_key
     }), 200
 
+
+
 @segments_bp.route('/lastlogin', methods=['GET'])
 def segment_lastlogin():
     info_db_no = request.args.get('info_db_no', type=int)
@@ -180,18 +204,21 @@ def segment_lastlogin():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
-        df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
+    # user_no 컬럼명 통일
     if 'user_no' in df_user.columns:
         df_user.rename(columns={'user_no': 'user_id'}, inplace=True)
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -200,9 +227,14 @@ def segment_lastlogin():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     now = datetime.now()
     now_str = now.strftime("%Y%m%d%H%M%S")
@@ -227,7 +259,6 @@ def segment_lastlogin():
 
     df['segment'] = df['last_login'].apply(get_login_segment)
 
-
     # 로컬 파일 저장
     save_dir = "csv_exports"
     os.makedirs(save_dir, exist_ok=True)
@@ -252,6 +283,8 @@ def segment_lastlogin():
         "filename": local_filename,
         "s3_key": s3_key
     }), 200
+
+
 
 @segments_bp.route('/genre', methods=['GET'])
 def segment_genre():
@@ -261,64 +294,71 @@ def segment_genre():
     target_column = 'favorite_genre'
 
     if info_db_no is None or not user_info or not user_sub_info:
-        return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
+        return jsonify({
+            "success": False,
+            "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."
+        }), 400
 
     try:
-        df_user = load_data(info_db_no, user_info, user_sub_info, target_column)
-        df_sub = load_data(info_db_no, user_sub_info, user_info, target_column)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
+    # user_no → user_id 통일
     if 'user_no' in df_user.columns:
         df_user.rename(columns={'user_no': 'user_id'}, inplace=True)
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
+    # 필요한 컬럼 정의
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
+
     if missing_user:
         return jsonify({"success": False, "message": f"df_user에 다음 컬럼이 없습니다: {missing_user}"}), 500
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
+    # 병합
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
-    now = datetime.now()
-    now_str = now.strftime("%Y%m%d%H%M%S")
-
-    df['segment'] = df['favorite_genre'].fillna('unknown').astype(str)
-
-    # 로컬 파일 저장
-    save_dir = "csv_exports"
-    os.makedirs(save_dir, exist_ok=True)
-    local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
-    file_path = os.path.join(save_dir, local_filename)
+    # 세그먼트 컬럼 생성
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    df['segment'] = df[target_column].fillna('unknown').astype(str)
 
     final_columns = ['segment'] + user_columns + ['subscription_type']
+
+    # CSV 로컬 저장
+    os.makedirs("csv_exports", exist_ok=True)
+    filename = f"{info_db_no}_segment_{target_column}_{now}.csv"
+    file_path = os.path.join("csv_exports", filename)
+
     try:
         df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
     except Exception as e:
         return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
-    # S3 업로드 (경로 예시: info_db_no/segment/target_column/파일명)
-    s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
+    # S3 업로드
+    s3_key = f"{info_db_no}/segment/{target_column}/{filename}"
     try:
         upload_file_to_s3(file_path, s3_key)
     except Exception as e:
         return jsonify({"success": False, "message": f"S3 업로드 중 오류: {str(e)}"}), 500
 
-    return jsonify({
-        "success": True,
-        "filename": local_filename,
-        "s3_key": s3_key
-    }), 200
-
-
+    return jsonify({"success": True, "filename": filename, "s3_key": s3_key}), 200
 
 
 
