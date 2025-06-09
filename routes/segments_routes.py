@@ -6,6 +6,7 @@ from flask import send_file, jsonify
 import pandas as pd
 from modules.common.user.user_utils import load_data
 from modules.common.s3_client import get_s3_client, bucket_name
+from modules.common.convert_data import convert_data
 
 segments_bp = Blueprint('segments', __name__, url_prefix='/api/segment')
 
@@ -29,8 +30,10 @@ def segment_subscription():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        df_user = load_data(info_db_no, user_info)
-        df_sub = load_data(info_db_no, user_sub_info)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -40,7 +43,7 @@ def segment_subscription():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -49,9 +52,14 @@ def segment_subscription():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     now = datetime.now()
     now_str = now.strftime("%Y%m%d%H%M%S")
@@ -109,8 +117,10 @@ def segment_watchtime():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        df_user = load_data(info_db_no, user_info)
-        df_sub = load_data(info_db_no, user_sub_info)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -120,7 +130,7 @@ def segment_watchtime():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -129,9 +139,14 @@ def segment_watchtime():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     # 컬럼명 확인 및 방어코드 추가
     if 'watch_time_hour' not in df.columns:
@@ -189,9 +204,10 @@ def segment_lastlogin():
         return jsonify({"success": False, "message": "info_db_no, user_info, user_sub_info 파라미터가 필요합니다."}), 400
 
     try:
-        # load_data 함수에 맞게 파라미터 수정 (user_info, user_sub_info 두 개만)
-        df_user = load_data(info_db_no, user_info)
-        df_sub = load_data(info_db_no, user_sub_info)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -202,7 +218,7 @@ def segment_lastlogin():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -211,9 +227,14 @@ def segment_lastlogin():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     now = datetime.now()
     now_str = now.strftime("%Y%m%d%H%M%S")
@@ -279,8 +300,10 @@ def segment_genre():
         }), 400
 
     try:
-        df_user = load_data(info_db_no, user_info)
-        df_sub = load_data(info_db_no, user_sub_info)
+        df_user = convert_data(info_db_no, user_info)
+        df_user = pd.DataFrame(df_user)
+        df_sub = convert_data(info_db_no, user_sub_info)
+        df_sub = pd.DataFrame(df_sub)
     except Exception as e:
         return jsonify({"success": False, "message": f"데이터 로드 중 오류: {str(e)}"}), 500
 
@@ -290,13 +313,9 @@ def segment_genre():
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
-    print("df_user columns:", df_user.columns.tolist())
-    print("df_sub columns:", df_sub.columns.tolist())
-
     # 필요한 컬럼 정의
     user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
-    sub_columns = ['user_id', 'subscription_type']
-
+    sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
     missing_sub = [col for col in sub_columns if col not in df_sub.columns]
@@ -306,10 +325,15 @@ def segment_genre():
     if missing_sub:
         return jsonify({"success": False, "message": f"df_sub에 다음 컬럼이 없습니다: {missing_sub}"}), 500
 
+    # 유저별 최신 구독 이력만 남기기 (started_at 기준)
+    df_sub['started_at'] = pd.to_datetime(df_sub['started_at'], errors='coerce')
+    df_sub = df_sub.sort_values(['user_id', 'started_at'], ascending=[True, False])
+    df_sub_latest = df_sub.drop_duplicates(subset=['user_id'], keep='first')
+    df_sub_latest = df_sub_latest[['user_id', 'subscription_type']]
+
     # 병합
     df_user = df_user[user_columns]
-    df_sub = df_sub[sub_columns]
-    df = pd.merge(df_user, df_sub, on='user_id', how='left')
+    df = pd.merge(df_user, df_sub_latest, on='user_id', how='left')
 
     # 세그먼트 컬럼 생성
     now = datetime.now().strftime("%Y%m%d%H%M%S")
