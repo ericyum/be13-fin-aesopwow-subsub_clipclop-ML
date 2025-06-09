@@ -9,7 +9,7 @@ from modules.common.user import user_utils
 from modules.dash_board.line_graph import calculate_increase_decrease_per
 from modules.dash_board.stacked_bar import get_monthly_cancelled_subscriptions, get_monthly_total_subscriptions
 from modules.dash_board.stat_cards import get_cancellation_rate, get_increase_decrease_rate
-from modules.devide.subscription import get_subscription_data
+from modules.devide.subscription import get_new_subscription_data
 
 s3 = get_s3_client()
 
@@ -215,7 +215,7 @@ def save_Dashboard_csv_to_s3(info_db_no, user_info, user_sub_info):
     # 1. 기본 지표
     metrics = {
         'entire_users': user_utils.get_total_users(info_db_no, user_info),
-        'new_users': user_utils.get_new_users(info_db_no, user_info),
+        'new_users': user_utils.get_new_users(info_db_no, user_sub_info),
         'active_users': user_utils.get_active_users(info_db_no, user_info),
         'dormant_users': user_utils.get_dormant_users(info_db_no, user_info),
         'increase_decrease_rate': get_increase_decrease_rate(info_db_no, user_sub_info),
@@ -224,10 +224,11 @@ def save_Dashboard_csv_to_s3(info_db_no, user_info, user_sub_info):
 
     # 2. 월별 스택바 데이터 (예: 구독 모델별 비율)
     monthly_total = get_monthly_total_subscriptions(info_db_no, user_sub_info)
+    print("Monthly Total Subscriptions:", monthly_total)
     monthly_cancelled = get_monthly_cancelled_subscriptions(info_db_no, user_sub_info)
 
     # 3. 신규 사용자는 월별 데이터로 받아오기 (딕셔너리 반환하도록 monthly=True)
-    new_users_data = get_subscription_data(info_db_no, user_sub_info, 'new', monthly=True)
+    new_users_data = get_new_subscription_data(info_db_no, user_sub_info)
 
     # 4. 월별 증감률 계산
     increase_decrease_df = calculate_increase_decrease_per(info_db_no, user_sub_info)
@@ -247,17 +248,26 @@ def save_Dashboard_csv_to_s3(info_db_no, user_info, user_sub_info):
     writer.writerow(['month', 'type', 'basic(%)', 'standard(%)', 'premium(%)'])
 
     # 전체 사용자
-    for month, (basic, standard, premium) in monthly_total.items():
+    for month, data in monthly_total.items():
+        basic = data.get("BASIC", 0.0)
+        standard = data.get("STANDARD", 0.0)
+        premium = data.get("PREMIUM", 0.0)
         writer.writerow([month, 'active', basic, standard, premium])
 
     # 해지 사용자
-    for month, (basic, standard, premium) in monthly_cancelled.items():
+    for month, data in monthly_cancelled.items():
+        basic = data.get("basic", 0.0)
+        standard = data.get("standard", 0.0)
+        premium = data.get("premium", 0.0)
         writer.writerow([month, 'cancelled', basic, standard, premium])
 
     # 신규 사용자 (월별 데이터)
     writer.writerow([])  # 빈 줄로 구분
     writer.writerow(['month', 'type', 'basic(%)', 'standard(%)', 'premium(%)'])
-    for month, (basic, standard, premium) in new_users_data.items():
+    for month, data in new_users_data.items():
+        basic = data.get("BASIC", 0.0)
+        standard = data.get("STANDARD", 0.0)
+        premium = data.get("PREMIUM", 0.0)
         writer.writerow([month, 'new', basic, standard, premium])
 
     # 5-3. 월별 증감률 데이터
