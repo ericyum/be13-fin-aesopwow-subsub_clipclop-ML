@@ -7,7 +7,6 @@ from modules.analysis.analysis_module import dashboard_s3_file, dashboard_s3_lis
 from modules.common.user import user_utils
 from modules.dash_board.stacked_bar import get_monthly_total_subscriptions, get_monthly_cancelled_subscriptions
 from modules.dash_board.stat_cards import get_increase_decrease_rate, get_cancellation_rate
-from modules.devide.subscription import get_subscription_data
 from modules.dash_board.line_graph import calculate_increase_decrease_per  # 추가
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
@@ -35,6 +34,10 @@ class TestAnalysis(Resource):
         now = datetime.now(timezone.utc)
         last_modified = before_file_first.get('LastModified') if before_file_first else None
 
+        # save_Dashboard_csv_to_s3(info_db_no, user_info, user_sub_info)
+
+        # after_file_first = dashboard_s3_list(info_db_no)
+        
         if (before_file_first is None or last_modified.year != now.year or last_modified.month != now.month):
             save_Dashboard_csv_to_s3(info_db_no, user_info, user_sub_info)
 
