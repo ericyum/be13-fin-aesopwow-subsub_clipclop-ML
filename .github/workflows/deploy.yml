@@ -21,6 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set Permissions
+        run: |
+          sudo chmod -R 755 .
+          sudo chmod +x scripts/start_server.sh
+
       - name: Make deployment zip
         run: |
           zip -r $GITHUB_SHA.zip models modules resources routes scripts app.py appspec.yml gunicorn_config.py requirements.txt wsgi.py
