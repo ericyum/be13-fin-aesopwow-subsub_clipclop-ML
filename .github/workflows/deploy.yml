@@ -27,17 +27,19 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-          echo "aws-access-key-id=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-          echo "aws-secret-access-key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-          echo "AWS-REGION=${{ secrets.REGION_NAME }}" >> .env
-          echo "REGION_NAME=${{ secrets.REGION_NAME }}" >> .env
-          echo "BUCKET_NAME=${{ secrets.BUCKET_NAME }}" >> .env
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          cat <<EOF > .env
+          DB_USER=${DB_USER}
+          DB_PASSWORD=${DB_PASSWORD}
+          DB_HOST=${DB_HOST}
+          DB_PORT=${DB_PORT}
+          DB_NAME=${DB_NAME}
+          aws-access-key-id=${AWS_ACCESS_KEY_ID}
+          aws-secret-access-key=${AWS_SECRET_ACCESS_KEY}
+          AWS-REGION=${REGION_NAME}
+          REGION_NAME=${REGION_NAME}
+          BUCKET_NAME=${BUCKET_NAME}
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          EOF
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
