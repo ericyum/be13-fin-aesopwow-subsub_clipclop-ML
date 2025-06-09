@@ -250,9 +250,9 @@ def segment_lastlogin():
         else:
             last_login_dt = last_login
         diff = (now - last_login_dt).days
-        if diff <= 7:
+        if diff <= 30:
             return 'Frequent User'
-        elif diff <= 30:
+        elif diff <= 60:
             return 'Dormant User'
         else:
             return 'Forgotten User'
