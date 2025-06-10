@@ -165,18 +165,19 @@ def segment_watchtime():
     df['segment'] = df['watch_time_hour'].apply(get_watch_time_segment)
 
     # 로컬 파일 저장
-    save_dir = "csv_exports"
-    os.makedirs(save_dir, exist_ok=True)
+    # save_dir = "csv_exports"
+    # os.makedirs(save_dir, exist_ok=True)
     now = datetime.now()
     now_str = now.strftime("%Y%m%d%H%M%S")
     local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
-    file_path = os.path.join(save_dir, local_filename)
+    # file_path = os.path.join(save_dir, local_filename)
+    file_path = local_filename
 
-    final_columns = ['segment'] + user_columns + ['subscription_type']
-    try:
-        df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
-    except Exception as e:
-        return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
+    # final_columns = ['segment'] + user_columns + ['subscription_type']
+    # try:
+    #     df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    # except Exception as e:
+    #     return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
     # S3 업로드
     s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
@@ -261,15 +262,15 @@ def segment_lastlogin():
 
     # 로컬 파일 저장
     save_dir = "csv_exports"
-    os.makedirs(save_dir, exist_ok=True)
+    # os.makedirs(save_dir, exist_ok=True)
     local_filename = f"{info_db_no}_segment_{target_column}_{now_str}.csv"
-    file_path = os.path.join(save_dir, local_filename)
+    file_path = local_filename
 
-    final_columns = ['segment'] + user_columns + ['subscription_type']
-    try:
-        df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
-    except Exception as e:
-        return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
+    # final_columns = ['segment'] + user_columns + ['subscription_type']
+    # try:
+    #     df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    # except Exception as e:
+    #     return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
     # S3 업로드 (경로 예시: info_db_no/segment/target_column/파일명)
     s3_key = f"{info_db_no}/segment/{target_column}/{local_filename}"
@@ -342,14 +343,14 @@ def segment_genre():
     final_columns = ['segment'] + user_columns + ['subscription_type']
 
     # CSV 로컬 저장
-    os.makedirs("csv_exports", exist_ok=True)
+    # os.makedirs("csv_exports", exist_ok=True)
     filename = f"{info_db_no}_segment_{target_column}_{now}.csv"
-    file_path = os.path.join("csv_exports", filename)
+    file_path = filename
 
-    try:
-        df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
-    except Exception as e:
-        return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
+    # try:
+    #     df.to_csv(file_path, columns=final_columns, index=False, encoding="utf-8")
+    # except Exception as e:
+    #     return jsonify({"success": False, "message": f"CSV 저장 중 오류: {str(e)}"}), 500
 
     # S3 업로드
     s3_key = f"{info_db_no}/segment/{target_column}/{filename}"
