@@ -18,6 +18,8 @@ def extract_insight_and_recommendation(llm_response: str) -> Insight:
 
         if line.startswith("요약:"):
             summary = line.replace("요약:", "").strip()
+        elif line.startswith("예측:"):
+            prediction = line.replace("예측:", "").strip()
         elif line.startswith("추천:"):
             recs = line.replace("추천:", "").strip().split(';')
             recommendations = [r.strip() for r in recs if r.strip()]
@@ -26,4 +28,4 @@ def extract_insight_and_recommendation(llm_response: str) -> Insight:
             if dot_index != -1 and dot_index < len(line) - 1:
                 recommendations.append(line[dot_index + 1:].strip())
 
-    return Insight(summary=summary, recommendations=recommendations)
+    return Insight(summary=summary, recommendations=recommendations, prediction=prediction)
