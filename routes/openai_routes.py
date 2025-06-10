@@ -31,6 +31,7 @@ Observation: (코드 실행 결과)
 ... (필요하다면 반복)
 Final Answer: 
 요약: (데이터의 주요 특징을 한 문장으로 요약)
+예측: (이탈 예측)
 인사이트: (데이터에서 발견한 중요한 인사이트를 2~3개로 정리)
 행동 추천: (데이터 기반으로 실질적으로 도움이 되는 구체적이고 친절한 행동 추천을 반드시 3가지 제시해줘. 각 추천은 이유와 함께, 구체적인 실행 방법이나 예시도 포함해줘.)
 
@@ -41,6 +42,7 @@ Action Input: df['churn'].mean()
 Observation: 0.23
 Final Answer: 
 요약: 전체 고객의 약 23%가 이탈했다.
+예측: 추후에 이탈할 구독자들의 이탈률은 30%로 예상된다.
 인사이트: 이탈률이 업계 평균보다 높다. 특정 요인(예: 요금제, 서비스 불만)이 영향을 준 것으로 보인다.
 행동 추천: 
 1. 이탈 고객을 대상으로 설문조사를 실시하여, 이탈의 주요 원인을 파악하세요. 예를 들어, 이메일 또는 전화 설문을 통해 서비스 불만족 요인을 구체적으로 수집할 수 있습니다.
@@ -78,9 +80,11 @@ class OpenaiAnalyze(Resource):
             # 2. 인사이트 및 행동 추천 추출
             insight = extract_insight_and_recommendation(llm_response)
 
+            print("인사이트:", insight)
             # 3. 결과 반환
             return {
                 "summary": insight.summary,
+                "prediction": insight.prediction,
                 "recommendations": insight.recommendations
             }, 200
         except Exception as e:
