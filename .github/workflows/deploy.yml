@@ -21,16 +21,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set Permissions
+        run: |
+          sudo chmod -R 755 .
+          sudo chmod +x scripts/start_server.sh
+
       - name: Make deployment zip
         run: |
           zip -r $GITHUB_SHA.zip models modules resources routes scripts app.py appspec.yml gunicorn_config.py requirements.txt wsgi.py
 
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          aws-access-key-id=${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS-REGION=${{ secrets.REGION_NAME }}
+          REGION_NAME=${{ secrets.REGION_NAME }}
+          BUCKET_NAME=${{ secrets.BUCKET_NAME }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          EOF
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          AWS-REGION: ${{ secrets.REGION_NAME }}
+          REGION_NAME: ${{ secrets.REGION_NAME }}
+          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Upload to S3
         run: |
