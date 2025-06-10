@@ -42,7 +42,7 @@ def segment_subscription():
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
-    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
+    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hours', 'favorite_genre', 'last_login', 'gender']
     sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
@@ -129,7 +129,7 @@ def segment_watchtime():
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
-    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
+    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hours', 'favorite_genre', 'last_login', 'gender']
     sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
@@ -217,7 +217,7 @@ def segment_lastlogin():
     if 'user_no' in df_sub.columns:
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
-    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
+    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hours', 'favorite_genre', 'last_login', 'gender']
     sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
@@ -250,9 +250,9 @@ def segment_lastlogin():
         else:
             last_login_dt = last_login
         diff = (now - last_login_dt).days
-        if diff <= 7:
+        if diff <= 30:
             return 'Frequent User'
-        elif diff <= 30:
+        elif diff <= 60:
             return 'Dormant User'
         else:
             return 'Forgotten User'
@@ -314,7 +314,7 @@ def segment_genre():
         df_sub.rename(columns={'user_no': 'user_id'}, inplace=True)
 
     # 필요한 컬럼 정의
-    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hour', 'favorite_genre', 'last_login', 'gender']
+    user_columns = ['user_id', 'name', 'age', 'country', 'watch_time_hours', 'favorite_genre', 'last_login', 'gender']
     sub_columns = ['user_id', 'subscription_type', 'started_at']  # started_at을 날짜 기준으로 사용
 
     missing_user = [col for col in user_columns if col not in df_user.columns]
